@@ -1,10 +1,39 @@
-export type CommandResult = {
-  status: 'completed' | 'unsupported';
-  message: string;
-};
+export type CommandResult =
+  | {
+      status: 'completed' | 'unsupported' | 'invalid';
+      message: string;
+    }
+  | {
+      status: 'requires_action';
+      action: {
+        type: 'create_note';
+        content: string;
+      };
+    };
 
 export function handleCommand(instruction: string): CommandResult {
-  const normalizedInstruction = instruction.trim().toLowerCase();
+  const cleanedInstruction = instruction.trim();
+  const normalizedInstruction = cleanedInstruction.toLowerCase();
+  const notePrefix = 'ghi chú:';
+
+  if (normalizedInstruction.startsWith(notePrefix)) {
+    const content = cleanedInstruction.slice(notePrefix.length).trim();
+
+    if (content.length === 0) {
+      return {
+        status: 'invalid',
+        message: 'Bạn cần nhập nội dung sau "ghi chú:".',
+      };
+    }
+
+    return {
+      status: 'requires_action',
+      action: {
+        type: 'create_note',
+        content,
+      },
+    };
+  }
 
   switch (normalizedInstruction) {
     case 'trợ giúp':
@@ -12,8 +41,8 @@ export function handleCommand(instruction: string): CommandResult {
       return {
         status: 'completed',
         message:
-          'Hiện tại tôi hỗ trợ hai lệnh: "trợ giúp" và "trạng thái". ' +
-          'Tôi chưa thể mở hoặc điều khiển ứng dụng khác.',
+          'Các lệnh hiện có: "trợ giúp", "trạng thái" và ' +
+          '"ghi chú: nội dung". Ghi chú chỉ được giữ trong phiên chạy.',
       };
 
     case 'trạng thái':
@@ -22,7 +51,7 @@ export function handleCommand(instruction: string): CommandResult {
         status: 'completed',
         message:
           'Bộ xử lý lệnh cục bộ đang hoạt động. ' +
-          'Chưa kết nối AI, microphone hoặc dịch vụ bên ngoài.',
+          'Ghi chú chưa được lưu lâu dài. Chưa kết nối AI hoặc microphone.',
       };
 
     default:
@@ -30,7 +59,7 @@ export function handleCommand(instruction: string): CommandResult {
         status: 'unsupported',
         message:
           'Yêu cầu này chưa được hỗ trợ. ' +
-          'Bạn có thể nhập "trợ giúp" để xem các lệnh hiện có.',
+          'Nhập "trợ giúp" để xem các lệnh hiện có.',
       };
   }
 }

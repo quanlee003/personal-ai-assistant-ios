@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -16,27 +16,50 @@ import {
   type CommandResult,
 } from '../services/command-handler';
 
+type Note = {
+  id: string;
+  content: string;
+};
 export default function HomeScreen() {
   const [instruction, setInstruction] = useState('');
   const [lastInstruction, setLastInstruction] = useState('');
   const [commandResult, setCommandResult] = useState<CommandResult | null>(null);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const nextNoteId = useRef(1);
 
   const canSend = instruction.trim().length > 0;
 
   function handleSend() {
-  const cleanedInstruction = instruction.trim();
+    const cleanedInstruction = instruction.trim();
 
-  if (cleanedInstruction.length === 0) {
-    return;
+    if (cleanedInstruction.length === 0) {
+      return;
+    }
+
+    const result = handleCommand(cleanedInstruction);
+
+    if (result.status === 'requires_action') {
+      const newNote: Note = {
+        id: `note-${nextNoteId.current}`,
+        content: result.action.content,
+      };
+
+      nextNoteId.current += 1;
+
+      setNotes((previousNotes) => [newNote, ...previousNotes]);
+
+      setCommandResult({
+        status: 'completed',
+        message: 'Đã thêm ghi chú vào danh sách của phiên hiện tại.',
+      });
+    } else {
+      setCommandResult(result);
+    }
+
+    setLastInstruction(cleanedInstruction);
+    setInstruction('');
+    Keyboard.dismiss();
   }
-
-  const result = handleCommand(cleanedInstruction);
-
-  setLastInstruction(cleanedInstruction);
-  setCommandResult(result);
-  setInstruction('');
-  Keyboard.dismiss();
-}
 
   return (
     <KeyboardAvoidingView
@@ -88,21 +111,39 @@ export default function HomeScreen() {
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Yêu cầu vừa gửi</Text>
-              {commandResult !== null && (
-                <View style={styles.card}>
-                  <Text style={styles.cardTitle}>Kết quả xử lý</Text>
+              {commandResult !== null &&
+                commandResult.status !== 'requires_action' && (
+                  <View style={styles.card}>
+                    <Text style={styles.cardTitle}>Kết quả xử lý</Text>
 
-                  <Text style={styles.note}>
-                    {commandResult.status === 'completed'
-                      ? 'Trạng thái: Đã xử lý'
-                      : 'Trạng thái: Chưa hỗ trợ'}
-                  </Text>
+                    <Text style={styles.note}>
+                      {commandResult.status === 'completed'
+                        ? 'Trạng thái: Đã xử lý'
+                        : commandResult.status === 'invalid'
+                          ? 'Trạng thái: Yêu cầu chưa hợp lệ'
+                          : 'Trạng thái: Chưa hỗ trợ'}
+                    </Text>
 
-                  <Text style={styles.result}>
-                    {commandResult.message}
-                  </Text>
-                </View>
+                    <Text style={styles.result}>
+                      {commandResult.message}
+                    </Text>
+                  </View>
+                )}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>
+                Ghi chú trong phiên ({notes.length})
+              </Text>
+
+              {notes.length === 0 ? (
+                <Text style={styles.note}>Chưa có ghi chú nào.</Text>
+              ) : (
+                notes.map((note) => (
+                  <View key={note.id} style={styles.noteItem}>
+                    <Text style={styles.result}>{note.content}</Text>
+                  </View>
+                ))
               )}
+            </View>
             <Text style={styles.result}>
               {lastInstruction || 'Bạn chưa gửi yêu cầu nào.'}
             </Text>
@@ -199,5 +240,11 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     fontSize: 13,
     lineHeight: 20,
+  },
+
+  noteItem: {
+    borderTopWidth: 1,
+    borderTopColor: '#475569',
+    paddingTop: 12,
   },
 });
