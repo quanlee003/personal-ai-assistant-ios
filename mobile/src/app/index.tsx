@@ -1,46 +1,97 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 export default function HomeScreen() {
-  const [testCount, setTestCount] = useState(0);
+  const [instruction, setInstruction] = useState('');
+  const [lastInstruction, setLastInstruction] = useState('');
+
+  const canSend = instruction.trim().length > 0;
+
+  function handleSend() {
+    const cleanedInstruction = instruction.trim();
+
+    if (cleanedInstruction.length === 0) {
+      return;
+    }
+
+    setLastInstruction(cleanedInstruction);
+    setInstruction('');
+    Keyboard.dismiss();
+  }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.label}>PERSONAL AI ASSISTANT</Text>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.content}>
+          <Text style={styles.label}>PERSONAL AI ASSISTANT</Text>
 
-        <Text style={styles.title}>Yo Quan!</Text>
+          <Text style={styles.title}>Xin chào, Quan.</Text>
 
-        <Text style={styles.description}>
-          Đây là điểm khởi đầu cho trợ lý cá nhân của bạn.
-        </Text>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Trạng thái ứng dụng</Text>
-
-          <Text style={styles.status}>
-            {testCount === 0
-              ? 'Sẵn sàng kiểm tra giao diện.'
-              : `Đã nhận ${testCount} lần bấm thành công.`}
+          <Text style={styles.description}>
+            Bạn muốn trợ lý hỗ trợ điều gì?
           </Text>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Yêu cầu của bạn</Text>
+
+            <TextInput
+              accessibilityLabel="Nhập yêu cầu cho trợ lý"
+              style={styles.input}
+              placeholder="Ví dụ: Mở Spotify"
+              placeholderTextColor="#94A3B8"
+              value={instruction}
+              onChangeText={setInstruction}
+              maxLength={500}
+              returnKeyType="send"
+              onSubmitEditing={handleSend}
+            />
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !canSend }}
+              disabled={!canSend}
+              onPress={handleSend}
+              style={({ pressed }) => [
+                styles.button,
+                !canSend && styles.buttonDisabled,
+                pressed && styles.buttonPressed,
+              ]}
+            >
+              <Text style={styles.buttonText}>Gửi yêu cầu</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Yêu cầu vừa gửi</Text>
+
+            <Text style={styles.result}>
+              {lastInstruction || 'Bạn chưa gửi yêu cầu nào.'}
+            </Text>
+          </View>
 
           <Text style={styles.note}>
-            Bản thử nghiệm giao diện — chưa kết nối AI hoặc microphone.
+            Bản thử nghiệm chỉ hiển thị yêu cầu. Chưa kết nối AI,
+            chưa thực hiện hành động và chưa lưu dữ liệu lâu dài.
           </Text>
         </View>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setTestCount((count) => count + 1)}
-          style={({ pressed }) => [
-            styles.button,
-            pressed && styles.buttonPressed,
-          ]}
-        >
-          <Text style={styles.buttonText}>Kiểm tra tương tác</Text>
-        </Pressable>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -48,9 +99,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0B1120',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
     paddingHorizontal: 24,
     paddingVertical: 32,
-    justifyContent: 'center',
   },
   content: {
     width: '100%',
@@ -77,30 +131,33 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#1E293B',
     borderRadius: 20,
-    padding: 24,
-    gap: 12,
+    padding: 20,
+    gap: 16,
   },
   cardTitle: {
     color: '#F8FAFC',
     fontSize: 18,
     fontWeight: '600',
   },
-  status: {
-    color: '#5EEAD4',
+  input: {
+    backgroundColor: '#0F172A',
+    color: '#F8FAFC',
+    borderColor: '#475569',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
     fontSize: 16,
-    lineHeight: 24,
-  },
-  note: {
-    color: '#94A3B8',
-    fontSize: 13,
-    lineHeight: 20,
   },
   button: {
     backgroundColor: '#5EEAD4',
     paddingVertical: 16,
     paddingHorizontal: 20,
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.4,
   },
   buttonPressed: {
     opacity: 0.75,
@@ -109,5 +166,15 @@ const styles = StyleSheet.create({
     color: '#0B1120',
     fontSize: 16,
     fontWeight: '700',
+  },
+  result: {
+    color: '#5EEAD4',
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  note: {
+    color: '#94A3B8',
+    fontSize: 13,
+    lineHeight: 20,
   },
 });
