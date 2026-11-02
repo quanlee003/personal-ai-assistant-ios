@@ -11,6 +11,11 @@ import {
   View,
 } from 'react-native';
 
+import {
+  handleCommand,
+  type CommandResult,
+} from '../services/command-handler';
+
 export default function HomeScreen() {
   const [instruction, setInstruction] = useState('');
   const [lastInstruction, setLastInstruction] = useState('');
