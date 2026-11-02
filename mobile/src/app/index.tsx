@@ -19,20 +19,24 @@ import {
 export default function HomeScreen() {
   const [instruction, setInstruction] = useState('');
   const [lastInstruction, setLastInstruction] = useState('');
+  const [commandResult, setCommandResult] = useState<CommandResult | null>(null);
 
   const canSend = instruction.trim().length > 0;
 
   function handleSend() {
-    const cleanedInstruction = instruction.trim();
+  const cleanedInstruction = instruction.trim();
 
-    if (cleanedInstruction.length === 0) {
-      return;
-    }
-
-    setLastInstruction(cleanedInstruction);
-    setInstruction('');
-    Keyboard.dismiss();
+  if (cleanedInstruction.length === 0) {
+    return;
   }
+
+  const result = handleCommand(cleanedInstruction);
+
+  setLastInstruction(cleanedInstruction);
+  setCommandResult(result);
+  setInstruction('');
+  Keyboard.dismiss();
+}
 
   return (
     <KeyboardAvoidingView
@@ -84,15 +88,29 @@ export default function HomeScreen() {
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Yêu cầu vừa gửi</Text>
+              {commandResult !== null && (
+                <View style={styles.card}>
+                  <Text style={styles.cardTitle}>Kết quả xử lý</Text>
 
+                  <Text style={styles.note}>
+                    {commandResult.status === 'completed'
+                      ? 'Trạng thái: Đã xử lý'
+                      : 'Trạng thái: Chưa hỗ trợ'}
+                  </Text>
+
+                  <Text style={styles.result}>
+                    {commandResult.message}
+                  </Text>
+                </View>
+              )}
             <Text style={styles.result}>
               {lastInstruction || 'Bạn chưa gửi yêu cầu nào.'}
             </Text>
           </View>
 
           <Text style={styles.note}>
-            Bản thử nghiệm chỉ hiển thị yêu cầu. Chưa kết nối AI,
-            chưa thực hiện hành động và chưa lưu dữ liệu lâu dài.
+            Bản thử nghiệm xử lý lệnh theo quy tắc trên thiết bị.
+            Chưa kết nối AI hoặc điều khiển ứng dụng khác.
           </Text>
         </View>
       </ScrollView>
