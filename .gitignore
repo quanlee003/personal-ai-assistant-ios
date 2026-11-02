@@ -1,0 +1,26 @@
+# Python virtual environments
+env/
+venv/
+.venv/
+
+# Node dependencies
+node_modules/
+
+# Expo
+.expo/
+
+# Build outputs
+dist/
+web-build/
+
+# Local environment variables
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
