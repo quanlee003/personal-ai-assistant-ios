@@ -19,6 +19,7 @@ import {
 } from '../services/command-handler';
 
 import VoiceRecorder from '../components/voice-recorder';
+import BackendStatus from '../components/backend-status';
 
 export default function HomeScreen() {
   const [instruction, setInstruction] = useState('');
@@ -142,6 +143,58 @@ export default function HomeScreen() {
     }
   }
 
+  async function handleSaveTranscript(text: string): Promise<boolean> {
+    const content = text.trim();
+
+    if (
+      content.length === 0 ||
+      !storageReady ||
+      submissionInProgress.current
+    ) {
+      return false;
+    }
+
+    submissionInProgress.current = true;
+    setIsSaving(true);
+    setStorageError(null);
+
+    try {
+      let newNoteId = `note-${nextNoteId.current}`;
+
+      while (notes.some((note) => note.id === newNoteId)) {
+        nextNoteId.current += 1;
+        newNoteId = `note-${nextNoteId.current}`;
+      }
+
+      const newNote: Note = {
+        id: newNoteId,
+        content,
+      };
+
+      nextNoteId.current += 1;
+
+      const updatedNotes = [newNote, ...notes];
+
+      await saveNotes(updatedNotes);
+
+      setNotes(updatedNotes);
+
+      return true;
+    } catch (error: unknown) {
+      console.error('Không thể lưu ghi chú từ transcript:', error);
+
+      setStorageError(
+        'Không thể hoàn tất lưu ghi chú từ giọng nói. ' +
+          'Nội dung chỉnh sửa được giữ lại để bạn kiểm tra hoặc thử lại.',
+      );
+
+      return false;
+    } finally {
+      setIsSaving(false);
+      submissionInProgress.current = false;
+    }
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -160,7 +213,13 @@ export default function HomeScreen() {
             Bạn muốn trợ lý hỗ trợ điều gì?
           </Text>
 
-          <VoiceRecorder />
+          <VoiceRecorder
+            storageReady={storageReady}
+            isSavingNote={isSaving}
+            onSaveTranscript={handleSaveTranscript}
+          />
+
+          <BackendStatus />
 
           {!storageReady && storageError === null && (
             <Text style={styles.note}>Đang đọc ghi chú đã lưu...</Text>

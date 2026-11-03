@@ -1,5 +1,11 @@
 import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import {
   AudioModule,
   RecordingPresets,
@@ -9,8 +15,44 @@ import {
 } from 'expo-audio';
 
 import RecordingPlayer from './recording-player';
+import { transcribeRecording } from '../services/transcription-api';
+import TranscriptEditor from './transcript-editor';
 
-export default function VoiceRecorder() {
+function confirmDiscardDraft(): Promise<boolean> {
+  return new Promise((resolve) => {
+    Alert.alert(
+      'Bản nháp chưa được lưu',
+      'Tiếp tục sẽ bỏ văn bản đang chỉnh sửa. Bạn muốn làm gì?',
+      [
+        {
+          text: 'Giữ bản nháp',
+          style: 'cancel',
+          onPress: () => resolve(false),
+        },
+        {
+          text: 'Bỏ bản nháp',
+          style: 'destructive',
+          onPress: () => resolve(true),
+        },
+      ],
+      {
+        cancelable: false,
+      },
+    );
+  });
+}
+
+type VoiceRecorderProps = {
+  storageReady: boolean;
+  isSavingNote: boolean;
+  onSaveTranscript: (text: string) => Promise<boolean>;
+};
+
+export default function VoiceRecorder({
+  storageReady,
+  isSavingNote,
+  onSaveTranscript,
+}: VoiceRecorderProps) {
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder);
 
@@ -18,11 +60,17 @@ export default function VoiceRecorder() {
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [transcript, setTranscript] = useState<string | null>(null);
+  const [hasUnsavedTranscript, setHasUnsavedTranscript] = useState(false);
+
   const operationInProgress = useRef(false);
 
   async function handleToggleRecording() {
-    if (operationInProgress.current) {
-      return;
+    if (operationInProgress.current || isSavingNote) {
+        return;
     }
 
     operationInProgress.current = true;
@@ -30,47 +78,39 @@ export default function VoiceRecorder() {
     setErrorMessage(null);
 
     try {
-      if (recorder.isRecording) {
+    if (!recorder.isRecording && hasUnsavedTranscript) {
+        const shouldDiscard = await confirmDiscardDraft();
+
+        if (!shouldDiscard) {
+        return;
+        }
+    }
+
+    if (recorder.isRecording) {
         await recorder.stop();
 
         const uri = recorder.uri;
 
         if (!uri) {
-          throw new Error('Không nhận được đường dẫn bản ghi.');
+            throw new Error('Không nhận được đường dẫn bản ghi.');
         }
 
         setRecordingUri(uri);
 
         await setAudioModeAsync({
-          allowsRecording: false,
+            allowsRecording: false,
         });
-      } else {
+        } else {
         const permission =
-          await AudioModule.requestRecordingPermissionsAsync();
-
-        if (!permission.granted) {
-          setErrorMessage(
-            'Chưa có quyền microphone. Nếu đã từ chối quyền, ' +
-              'hãy kiểm tra quyền microphone của Expo Go trong Settings.',
-          );
-          return;
-        }
-
-        await setAudioModeAsync({
-          allowsRecording: true,
-          playsInSilentMode: true,
-          allowsBackgroundRecording: false,
-        });
+            await AudioModule.requestRecordingPermissionsAsync();
 
         if (!permission.granted) {
             setErrorMessage(
-                'Chưa có quyền microphone. Nếu đã từ chối quyền, ' +
+            'Chưa có quyền microphone. Nếu đã từ chối quyền, ' +
                 'hãy kiểm tra quyền microphone của Expo Go trong Settings.',
             );
             return;
         }
-
-        setRecordingUri(null);
 
         await setAudioModeAsync({
             allowsRecording: true,
@@ -78,27 +118,105 @@ export default function VoiceRecorder() {
             allowsBackgroundRecording: false,
         });
 
+        setRecordingUri(null);
+        setUploadMessage(null);
+        setUploadError(null);
+        setTranscript(null);
+        setHasUnsavedTranscript(false);
+
         await recorder.prepareToRecordAsync();
-
         recorder.record();
-
-      }
+        }
     } catch (error: unknown) {
-      console.error('Lỗi thu âm:', error);
+        console.error('Lỗi thu âm:', error);
 
-      setErrorMessage(
+        setErrorMessage(
         'Thao tác thu âm gặp lỗi. Hãy kiểm tra trạng thái bên dưới ' +
-          'và dừng thu nếu ứng dụng vẫn đang ghi âm.',
-      );
+            'và dừng thu nếu ứng dụng vẫn đang ghi âm.',
+        );
     } finally {
-      setIsBusy(false);
-      operationInProgress.current = false;
+        setIsBusy(false);
+        operationInProgress.current = false;
     }
-  }
+    }
 
-  const durationSeconds = Math.floor(
-    recorderState.durationMillis / 1000,
-  );
+    async function handleUpload() {
+    if (
+        operationInProgress.current ||
+        isSavingNote ||
+        recorder.isRecording ||
+        !recordingUri
+    ) {
+        return;
+    }
+
+    operationInProgress.current = true;
+    setIsUploading(true);
+
+    try {
+        if (hasUnsavedTranscript) {
+        const shouldDiscard = await confirmDiscardDraft();
+
+        if (!shouldDiscard) {
+            return;
+        }
+        }
+
+        setUploadMessage(null);
+        setUploadError(null);
+        setTranscript(null);
+        setHasUnsavedTranscript(false);
+
+        const result = await transcribeRecording(recordingUri);
+        const text = result.text.trim();
+
+        if (text.length === 0) {
+        setUploadMessage(
+            'Không nhận dạng được lời nói trong bản ghi. ' +
+            'Bạn có thể nghe lại hoặc thu một đoạn khác.',
+        );
+        return;
+        }
+
+        setTranscript(text);
+        setHasUnsavedTranscript(true);
+
+        setUploadMessage(
+        'Đã nhận văn bản. Hãy kiểm tra nội dung trước khi sử dụng.',
+        );
+    } catch (error: unknown) {
+        console.error('Lỗi chuyển audio thành văn bản:', error);
+
+        const wasAborted =
+        error instanceof Error && error.name === 'AbortError';
+
+        setUploadError(
+        wasAborted
+            ? 'Đã hết thời gian chờ. Backend có thể vẫn đang xử lý. ' +
+                'Không tự động gửi lại để tránh tạo request trùng.'
+            : error instanceof Error
+            ? error.message
+            : 'Không chuyển được audio thành văn bản. ' +
+                'Hãy kiểm tra kết nối và thử lại.',
+        );
+    } finally {
+        setIsUploading(false);
+        operationInProgress.current = false;
+    }
+    }
+
+    const durationSeconds = Math.floor(
+        recorderState.durationMillis / 1000,
+    );
+
+    const recordingDisabled = isBusy || isUploading || isSavingNote;
+
+    const uploadDisabled =
+        isBusy ||
+        isUploading ||
+        isSavingNote ||
+        recorderState.isRecording ||
+        recordingUri === null;
 
   return (
     <View style={styles.card}>
@@ -112,23 +230,25 @@ export default function VoiceRecorder() {
 
       <Pressable
         accessibilityRole="button"
-        accessibilityState={{ disabled: isBusy }}
-        disabled={isBusy}
+        accessibilityState={{ disabled: recordingDisabled }}
+        disabled={recordingDisabled}
         onPress={handleToggleRecording}
         style={({ pressed }) => [
-          styles.button,
-          recorderState.isRecording && styles.stopButton,
-          (pressed || isBusy) && styles.dimmed,
+            styles.button,
+            recorderState.isRecording && styles.stopButton,
+            (pressed || recordingDisabled) && styles.dimmed,
         ]}
-      >
+        >
         <Text style={styles.buttonText}>
-          {isBusy
-            ? 'Đang xử lý...'
-            : recorderState.isRecording
-              ? 'Dừng thu âm'
-              : 'Bắt đầu thu âm'}
+            {isUploading
+            ? 'Đang gửi bản ghi...'
+            : isBusy
+                ? 'Đang xử lý...'
+                : recorderState.isRecording
+                ? 'Dừng thu âm'
+                : 'Bắt đầu thu âm'}
         </Text>
-      </Pressable>
+        </Pressable>
 
       {errorMessage !== null && (
         <Text accessibilityRole="alert" style={styles.error}>
@@ -136,22 +256,70 @@ export default function VoiceRecorder() {
         </Text>
       )}
 
-      {recordingUri !== null && (
-        <View style={styles.recordingInfo}>
-            <Text style={styles.text}>Đã nhận đường dẫn bản ghi:</Text>
+        {recordingUri !== null && (
+            <View style={styles.recordingInfo}>
+                <Text style={styles.text}>Đã nhận đường dẫn bản ghi:</Text>
 
-            <Text selectable style={styles.uri}>
-            {recordingUri}
-            </Text>
+                <Text selectable style={styles.uri}>
+                {recordingUri}
+                </Text>
 
-            <RecordingPlayer key={recordingUri} uri={recordingUri} />
-        </View>
+                <RecordingPlayer key={recordingUri} uri={recordingUri} />
+
+                <Pressable
+                accessibilityRole="button"
+                accessibilityState={{
+                    disabled: uploadDisabled,
+                    busy: isUploading,
+                }}
+                disabled={uploadDisabled}
+                onPress={handleUpload}
+                style={({ pressed }) => [
+                    styles.button,
+                    (pressed || uploadDisabled) && styles.dimmed,
+                ]}
+                >
+                <Text style={styles.buttonText}>
+                    {isUploading ? 'Đang nhận dạng...' : 'Chuyển thành văn bản'}
+                </Text>
+                </Pressable>
+
+                {uploadMessage !== null && (
+                <Text accessibilityLiveRegion="polite" style={styles.status}>
+                    {uploadMessage}
+                    
+                </Text>
+                )}
+
+                {transcript !== null && (
+                <TranscriptEditor
+                    key={`${recordingUri ?? ''}:${transcript}`}
+                    initialText={transcript}
+                    disabled={
+                        !storageReady ||
+                        isSavingNote ||
+                        isBusy ||
+                        isUploading ||
+                        recorderState.isRecording
+                    }
+                    onSave={onSaveTranscript}
+                    onUnsavedChange={setHasUnsavedTranscript}
+                />
+                )}
+
+                {uploadError !== null && (
+                <Text accessibilityRole="alert" style={styles.error}>
+                    {uploadError}
+                </Text>
+                )}
+            </View>
         )}
 
-      <Text style={styles.note}>
-        Chỉ thu khi bạn bấm nút. Chưa gửi audio ra ngoài,
-        chưa chuyển thành văn bản. Giữ app mở trong lúc thử.
-      </Text>
+        <Text style={styles.note}>
+            Chỉ thu khi bạn bấm nút. Khi bấm “Chuyển thành văn bản”,
+            audio sẽ được gửi qua backend tới Deepgram để nhận dạng.
+            Chỉ thử bằng nội dung không nhạy cảm và giữ app mở trong lúc xử lý.
+        </Text>
     </View>
   );
 }
@@ -212,5 +380,16 @@ const styles = StyleSheet.create({
     color: '#FCA5A5',
     fontSize: 14,
     lineHeight: 22,
+  },
+    transcriptBox: {
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    padding: 16,
+    gap: 8,
+  },
+    transcriptText: {
+    color: '#F8FAFC',
+    fontSize: 16,
+    lineHeight: 26,
   },
 });
