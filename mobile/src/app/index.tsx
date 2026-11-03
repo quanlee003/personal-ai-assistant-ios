@@ -18,6 +18,8 @@ import {
   type CommandResult,
 } from '../services/command-handler';
 
+import VoiceRecorder from '../components/voice-recorder';
+
 export default function HomeScreen() {
   const [instruction, setInstruction] = useState('');
   const [lastInstruction, setLastInstruction] = useState('');
@@ -156,16 +158,19 @@ export default function HomeScreen() {
 
           <Text style={styles.description}>
             Bạn muốn trợ lý hỗ trợ điều gì?
-            {!storageReady && storageError === null && (
-              <Text style={styles.note}>Đang đọc ghi chú đã lưu...</Text>
-            )}
-
-            {storageError !== null && (
-              <Text accessibilityRole="alert" style={styles.error}>
-                {storageError}
-              </Text>
-            )}
           </Text>
+
+          <VoiceRecorder />
+
+          {!storageReady && storageError === null && (
+            <Text style={styles.note}>Đang đọc ghi chú đã lưu...</Text>
+          )}
+
+          {storageError !== null && (
+            <Text accessibilityRole="alert" style={styles.error}>
+              {storageError}
+            </Text>
+          )}
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Yêu cầu của bạn</Text>
@@ -197,6 +202,7 @@ export default function HomeScreen() {
               <Text style={styles.buttonText}>
                 {isSaving ? 'Đang lưu...' : 'Gửi yêu cầu'}
               </Text>
+              
             </Pressable>
           </View>
 
