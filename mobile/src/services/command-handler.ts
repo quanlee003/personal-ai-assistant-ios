@@ -41,8 +41,8 @@ export function handleCommand(instruction: string): CommandResult {
       return {
         status: 'completed',
         message:
-          'Các lệnh hiện có: "trợ giúp", "trạng thái" và ' +
-          '"ghi chú: nội dung". Ghi chú chỉ được giữ trong phiên chạy.',
+        'Các lệnh hiện có: "trợ giúp", "trạng thái" và ' +
+        '"ghi chú: nội dung". Ghi chú được lưu cục bộ trên thiết bị.',
       };
 
     case 'trạng thái':
@@ -50,8 +50,9 @@ export function handleCommand(instruction: string): CommandResult {
       return {
         status: 'completed',
         message:
-          'Bộ xử lý lệnh cục bộ đang hoạt động. ' +
-          'Ghi chú chưa được lưu lâu dài. Chưa kết nối AI hoặc microphone.',
+        'Bộ xử lý lệnh cục bộ đang hoạt động. ' +
+        'Ứng dụng hỗ trợ lưu ghi chú trên thiết bị. ' +
+        'Chưa kết nối AI hoặc microphone.',
       };
 
     default:

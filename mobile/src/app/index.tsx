@@ -1,4 +1,6 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { Note } from '../types/note';
+import { loadNotes, saveNotes } from '../services/note-storage';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -16,49 +18,126 @@ import {
   type CommandResult,
 } from '../services/command-handler';
 
-type Note = {
-  id: string;
-  content: string;
-};
 export default function HomeScreen() {
   const [instruction, setInstruction] = useState('');
   const [lastInstruction, setLastInstruction] = useState('');
   const [commandResult, setCommandResult] = useState<CommandResult | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [storageReady, setStorageReady] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
+
+  const submissionInProgress = useRef(false);
   const nextNoteId = useRef(1);
 
-  const canSend = instruction.trim().length > 0;
+  const canSend =
+    storageReady &&
+    !isSaving &&
+    instruction.trim().length > 0;
 
-  function handleSend() {
+
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function restoreNotes() {
+      try {
+        const storedNotes = await loadNotes();
+
+        if (ignore) {
+          return;
+        }
+
+        setNotes(storedNotes);
+        setStorageError(null);
+        setStorageReady(true);
+      } catch (error: unknown) {
+        if (ignore) {
+          return;
+        }
+
+        console.error('Không thể đọc ghi chú:', error);
+
+        setStorageError(
+          'Không thể đọc ghi chú đã lưu. Tính năng gửi đang bị khóa ' +
+            'để tránh ghi đè dữ liệu. Hãy thử reload app.',
+        );
+      }
+    }
+
+    void restoreNotes();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+
+
+  async function handleSend() {
     const cleanedInstruction = instruction.trim();
 
-    if (cleanedInstruction.length === 0) {
+    if (
+      cleanedInstruction.length === 0 ||
+      !storageReady ||
+      submissionInProgress.current
+    ) {
       return;
     }
 
-    const result = handleCommand(cleanedInstruction);
+    submissionInProgress.current = true;
+    setStorageError(null);
 
-    if (result.status === 'requires_action') {
-      const newNote: Note = {
-        id: `note-${nextNoteId.current}`,
-        content: result.action.content,
-      };
+    try {
+      const result = handleCommand(cleanedInstruction);
 
-      nextNoteId.current += 1;
+      if (result.status === 'requires_action') {
+        setIsSaving(true);
 
-      setNotes((previousNotes) => [newNote, ...previousNotes]);
+        let newNoteId = `note-${nextNoteId.current}`;
 
-      setCommandResult({
-        status: 'completed',
-        message: 'Đã thêm ghi chú vào danh sách của phiên hiện tại.',
-      });
-    } else {
-      setCommandResult(result);
+        while (notes.some((note) => note.id === newNoteId)) {
+          nextNoteId.current += 1;
+          newNoteId = `note-${nextNoteId.current}`;
+        }
+
+        const newNote: Note = {
+          id: newNoteId,
+          content: result.action.content,
+        };
+
+        nextNoteId.current += 1;
+
+        const updatedNotes = [newNote, ...notes];
+
+        await saveNotes(updatedNotes);
+
+        setNotes(updatedNotes);
+
+        setCommandResult({
+          status: 'completed',
+          message: 'Đã tạo và lưu ghi chú trên thiết bị.',
+        });
+      } else {
+        setCommandResult(result);
+      }
+
+      setLastInstruction(cleanedInstruction);
+      setInstruction('');
+      Keyboard.dismiss();
+    } catch (error: unknown) {
+      console.error('Không thể xử lý yêu cầu:', error);
+
+      setCommandResult(null);
+
+      setStorageError(
+        'Không thể hoàn tất lưu ghi chú. Chưa xác nhận thành công; ' +
+          'nội dung nhập được giữ lại để bạn kiểm tra hoặc thử lại.',
+      );
+    } finally {
+      setIsSaving(false);
+      submissionInProgress.current = false;
     }
-
-    setLastInstruction(cleanedInstruction);
-    setInstruction('');
-    Keyboard.dismiss();
   }
 
   return (
@@ -77,6 +156,15 @@ export default function HomeScreen() {
 
           <Text style={styles.description}>
             Bạn muốn trợ lý hỗ trợ điều gì?
+            {!storageReady && storageError === null && (
+              <Text style={styles.note}>Đang đọc ghi chú đã lưu...</Text>
+            )}
+
+            {storageError !== null && (
+              <Text accessibilityRole="alert" style={styles.error}>
+                {storageError}
+              </Text>
+            )}
           </Text>
 
           <View style={styles.card}>
@@ -92,6 +180,7 @@ export default function HomeScreen() {
               maxLength={500}
               returnKeyType="send"
               onSubmitEditing={handleSend}
+              editable={storageReady && !isSaving}
             />
 
             <Pressable
@@ -105,7 +194,9 @@ export default function HomeScreen() {
                 pressed && styles.buttonPressed,
               ]}
             >
-              <Text style={styles.buttonText}>Gửi yêu cầu</Text>
+              <Text style={styles.buttonText}>
+                {isSaving ? 'Đang lưu...' : 'Gửi yêu cầu'}
+              </Text>
             </Pressable>
           </View>
 
@@ -131,7 +222,7 @@ export default function HomeScreen() {
                 )}
             <View style={styles.card}>
               <Text style={styles.cardTitle}>
-                Ghi chú trong phiên ({notes.length})
+                Ghi chú trên thiết bị ({notes.length})
               </Text>
 
               {notes.length === 0 ? (
@@ -150,8 +241,8 @@ export default function HomeScreen() {
           </View>
 
           <Text style={styles.note}>
-            Bản thử nghiệm xử lý lệnh theo quy tắc trên thiết bị.
-            Chưa kết nối AI hoặc điều khiển ứng dụng khác.
+            Ghi chú được lưu cục bộ trên thiết bị, không được mã hóa
+            và chưa đồng bộ cloud. Không nhập thông tin nhạy cảm.
           </Text>
         </View>
       </ScrollView>
@@ -246,5 +337,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#475569',
     paddingTop: 12,
+  },
+  error: {
+    color: '#FCA5A5',
+    fontSize: 14,
+    lineHeight: 22,
   },
 });
