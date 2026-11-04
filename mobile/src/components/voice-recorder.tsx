@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -19,6 +19,13 @@ import {
 import RecordingPlayer from './recording-player';
 import { transcribeRecording } from '../services/transcription-api';
 import TranscriptEditor from './transcript-editor';
+
+const MAX_RECORDING_SECONDS = 60;
+
+type RecordingCompletion = {
+  uri: string | null;
+  error: string | null;
+};
 
 function confirmDiscardDraft(): Promise<boolean> {
   return new Promise((resolve) => {
@@ -55,8 +62,36 @@ export default function VoiceRecorder({
   isSavingNote,
   onSaveTranscript,
 }: VoiceRecorderProps) {
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const recorderState = useAudioRecorderState(recorder);
+    const recordingSessionActive = useRef(false);
+
+    const [pendingCompletion, setPendingCompletion] =
+    useState<RecordingCompletion | null>(null);
+
+    const recorder = useAudioRecorder(
+    RecordingPresets.HIGH_QUALITY,
+    (status) => {
+        if (!recordingSessionActive.current) {
+        return;
+        }
+
+        if (status.hasError) {
+        setPendingCompletion({
+            uri: null,
+            error: status.error ?? 'Recorder báo lỗi trong khi thu âm.',
+        });
+        return;
+        }
+
+        if (status.isFinished) {
+        setPendingCompletion({
+            uri: status.url,
+            error: null,
+        });
+        }
+    },
+    );
+
+    const recorderState = useAudioRecorderState(recorder);
 
   const [isBusy, setIsBusy] = useState(false);
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
@@ -75,7 +110,80 @@ export default function VoiceRecorder({
 
   const operationInProgress = useRef(false);
 
+  useEffect(() => {
+    if (
+        pendingCompletion === null ||
+        isBusy ||
+        operationInProgress.current ||
+        !recordingSessionActive.current
+    ) {
+        return;
+    }
+
+    // Nhận quyền hoàn tất đúng một lần cho phiên hiện tại.
+    recordingSessionActive.current = false;
+    operationInProgress.current = true;
+    setIsBusy(true);
+
+    async function finalizeRecording() {
+        try {
+        if (pendingCompletion === null) {
+            return;
+        }
+
+        if (pendingCompletion.error !== null) {
+            throw new Error(pendingCompletion.error);
+        }
+
+        const uri = pendingCompletion.uri ?? recorder.uri;
+
+        if (!uri) {
+            throw new Error('Không nhận được đường dẫn bản ghi.');
+        }
+
+        setRecordingUri(uri);
+        } catch (error: unknown) {
+        console.error('Không thể hoàn tất bản ghi:', error);
+
+        setErrorMessage(
+            'Không hoàn tất được bản ghi. Hãy thử thu lại một đoạn ngắn.',
+        );
+        } finally {
+        try {
+            await setAudioModeAsync({
+            allowsRecording: false,
+            playsInSilentMode: true,
+            shouldPlayInBackground: false,
+            });
+        } catch (error: unknown) {
+            console.error('Không thể khôi phục audio mode:', error);
+
+            setErrorMessage(
+            'Đã kết thúc xử lý bản ghi nhưng chưa khôi phục được audio mode. ' +
+                'Hãy thử phát lại; nếu vẫn lỗi, mở lại app.',
+            );
+        } finally {
+            setPendingCompletion(null);
+            setIsBusy(false);
+            operationInProgress.current = false;
+        }
+        }
+    }
+
+    void finalizeRecording();
+    }, [pendingCompletion, isBusy, recorder]);
+
   async function handlePlayback() {
+    if (
+        operationInProgress.current ||
+        pendingCompletion !== null ||
+        recordingSessionActive.current ||
+        recorder.isRecording ||
+        !recordingUri ||
+        !player.isLoaded
+        ) {
+        return;
+    }
     if (
         operationInProgress.current ||
         recorder.isRecording ||
@@ -115,7 +223,11 @@ export default function VoiceRecorder({
     }
 
   async function handleToggleRecording() {
-    if (operationInProgress.current || isSavingNote) {
+    if (
+        operationInProgress.current ||
+        isSavingNote ||
+        pendingCompletion !== null
+    ) {
         return;
     }
 
@@ -124,42 +236,48 @@ export default function VoiceRecorder({
     setErrorMessage(null);
 
     try {
-    if (!recorder.isRecording && hasUnsavedTranscript) {
+        if (recorder.isRecording) {
+        await recorder.stop();
+
+        // Dự phòng cho đường dừng thủ công:
+        // không phụ thuộc hoàn toàn vào thời điểm callback native tới.
+        if (recordingSessionActive.current) {
+            setPendingCompletion({
+            uri: recorder.uri,
+            error: null,
+            });
+        }
+
+        return;
+        }
+
+        // Recorder có thể vừa tự dừng nhưng callback chưa được xử lý.
+        // Không bắt đầu phiên mới trước khi hoàn tất phiên cũ.
+        if (recordingSessionActive.current) {
+        return;
+        }
+
+        if (hasUnsavedTranscript) {
         const shouldDiscard = await confirmDiscardDraft();
 
         if (!shouldDiscard) {
-        return;
+            return;
         }
-    }
-
-    if (recorder.isRecording) {
-        await recorder.stop();
-
-        const uri = recorder.uri;
-
-        if (!uri) {
-            throw new Error('Không nhận được đường dẫn bản ghi.');
         }
 
-        setRecordingUri(uri);
-
-        await setAudioModeAsync({
-            allowsRecording: false,
-        });
-        } else {
         const permission =
-            await AudioModule.requestRecordingPermissionsAsync();
+        await AudioModule.requestRecordingPermissionsAsync();
 
         if (!permission.granted) {
-            setErrorMessage(
-                'Chưa có quyền microphone. Nếu đã từ chối quyền, ' +
-                'hãy kiểm tra quyền microphone của Expo Go trong Settings.',
-            );
-            return;
+        setErrorMessage(
+            'Chưa có quyền microphone. Nếu đã từ chối quyền, ' +
+            'hãy kiểm tra quyền microphone của Expo Go trong Settings.',
+        );
+        return;
         }
 
         if (player.isLoaded) {
-            player.pause();
+        player.pause();
         }
 
         setPlaybackError(null);
@@ -171,17 +289,35 @@ export default function VoiceRecorder({
         shouldPlayInBackground: false,
         });
 
+        await recorder.prepareToRecordAsync();
+
         setRecordingUri(null);
         setUploadMessage(null);
         setUploadError(null);
         setTranscript(null);
         setHasUnsavedTranscript(false);
 
-        await recorder.prepareToRecordAsync();
-        recorder.record();
-        }
+        recordingSessionActive.current = true;
+
+        recorder.record({
+        forDuration: MAX_RECORDING_SECONDS,
+        });
     } catch (error: unknown) {
         console.error('Lỗi thu âm:', error);
+
+        if (!recorder.isRecording) {
+        recordingSessionActive.current = false;
+
+        try {
+            await setAudioModeAsync({
+            allowsRecording: false,
+            playsInSilentMode: true,
+            shouldPlayInBackground: false,
+            });
+        } catch (modeError: unknown) {
+            console.error('Không thể khôi phục audio mode:', modeError);
+        }
+        }
 
         setErrorMessage(
         'Thao tác thu âm gặp lỗi. Hãy kiểm tra trạng thái bên dưới ' +
@@ -194,6 +330,16 @@ export default function VoiceRecorder({
     }
 
     async function handleUpload() {
+    if (
+        operationInProgress.current ||
+        pendingCompletion !== null ||
+        recordingSessionActive.current ||
+        isSavingNote ||
+        recorder.isRecording ||
+        !recordingUri
+    ) {
+        return;
+    }
     if (
         operationInProgress.current ||
         isSavingNote ||
@@ -258,40 +404,48 @@ export default function VoiceRecorder({
     }
     }
 
-    const durationSeconds = Math.floor(
-        recorderState.durationMillis / 1000,
+    const durationSeconds = Math.min(
+    MAX_RECORDING_SECONDS,
+    Math.floor(recorderState.durationMillis / 1000),
     );
+
+    const isFinalizingRecording = pendingCompletion !== null;
 
     const recordingDisabled =
     isBusy ||
     isUploading ||
     isSavingNote ||
-    isPlaybackBusy;
+    isPlaybackBusy ||
+    isFinalizingRecording;
 
     const uploadDisabled =
     isBusy ||
     isUploading ||
     isSavingNote ||
     isPlaybackBusy ||
+    isFinalizingRecording ||
     recorderState.isRecording ||
     recordingUri === null;
 
     const playbackDisabled =
     isBusy ||
     isPlaybackBusy ||
+    isFinalizingRecording ||
     recorderState.isRecording ||
     recordingUri === null ||
     !playerStatus.isLoaded;
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Giọng nói — thử nghiệm thu âm</Text>
-
       <Text style={styles.status}>
-        {recorderState.isRecording
-          ? `Đang thu âm: ${durationSeconds} giây`
-          : 'Không thu âm'}
-      </Text>
+        {isFinalizingRecording
+            ? 'Đang hoàn tất bản ghi...'
+            : recorderState.isRecording
+            ? `Đang thu âm: ${durationSeconds} / ${MAX_RECORDING_SECONDS} giây`
+            : recordingUri !== null
+                ? 'Đã có bản ghi — có thể nghe lại hoặc chuyển thành văn bản.'
+                : 'Không thu âm'}
+        </Text>
 
       <Pressable
         accessibilityRole="button"
@@ -307,9 +461,11 @@ export default function VoiceRecorder({
         <Text style={styles.buttonText}>
         {isUploading
             ? 'Đang nhận dạng...'
+            : isFinalizingRecording
+            ? 'Đang hoàn tất...'
             : isBusy || isPlaybackBusy
-            ? 'Đang xử lý...'
-            : recorderState.isRecording
+                ? 'Đang xử lý...'
+                : recorderState.isRecording
                 ? 'Dừng thu âm'
                 : 'Bắt đầu thu âm'}
         </Text>
@@ -390,9 +546,10 @@ export default function VoiceRecorder({
         )}
 
         <Text style={styles.note}>
-            Chỉ thu khi bạn bấm nút. Khi bấm “Chuyển thành văn bản”,
-            audio sẽ được gửi qua backend tới Deepgram để nhận dạng.
-            Chỉ thử bằng nội dung không nhạy cảm và giữ app mở trong lúc xử lý.
+        Mỗi bản ghi tối đa {MAX_RECORDING_SECONDS} giây và tự dừng khi
+        đạt giới hạn. Audio chỉ được gửi qua backend tới Deepgram khi
+        bạn bấm “Chuyển thành văn bản”. Chỉ thử bằng nội dung không
+        nhạy cảm và giữ app mở trong lúc thu, xử lý.
         </Text>
     </View>
   );
