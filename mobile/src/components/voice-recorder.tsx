@@ -19,6 +19,7 @@ import {
 import RecordingPlayer from './recording-player';
 import { transcribeRecording } from '../services/transcription-api';
 import TranscriptEditor from './transcript-editor';
+import { useTranscriptDraft } from '../hooks/use-transcript-draft';
 
 const MAX_RECORDING_SECONDS = 60;
 
@@ -105,8 +106,12 @@ export default function VoiceRecorder({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [transcript, setTranscript] = useState<string | null>(null);
-  const [hasUnsavedTranscript, setHasUnsavedTranscript] = useState(false);
+  const draft = useTranscriptDraft();
+
+  const transcript = draft.text;
+
+  const hasUnsavedTranscript =
+    transcript !== null && !draft.cleanupRequired;
 
   const operationInProgress = useRef(false);
 
@@ -224,7 +229,10 @@ export default function VoiceRecorder({
 
   async function handleToggleRecording() {
     if (
-        operationInProgress.current ||
+        !draft.ready ||
+        draft.busy ||
+        draft.cleanupRequired ||
+        operationInProgress.current || 
         isSavingNote ||
         pendingCompletion !== null
     ) {
@@ -258,11 +266,17 @@ export default function VoiceRecorder({
         }
 
         if (hasUnsavedTranscript) {
-        const shouldDiscard = await confirmDiscardDraft();
+            const shouldDiscard = await confirmDiscardDraft();
 
-        if (!shouldDiscard) {
-            return;
-        }
+            if (!shouldDiscard) {
+                return;
+            }
+
+            const discarded = await draft.discard();
+
+            if (!discarded) {
+                return;
+            }
         }
 
         const permission =
@@ -294,8 +308,6 @@ export default function VoiceRecorder({
         setRecordingUri(null);
         setUploadMessage(null);
         setUploadError(null);
-        setTranscript(null);
-        setHasUnsavedTranscript(false);
 
         recordingSessionActive.current = true;
 
@@ -331,6 +343,9 @@ export default function VoiceRecorder({
 
     async function handleUpload() {
     if (
+        !draft.ready ||
+        draft.busy ||
+        draft.cleanupRequired ||
         operationInProgress.current ||
         pendingCompletion !== null ||
         recordingSessionActive.current ||
@@ -354,17 +369,21 @@ export default function VoiceRecorder({
 
     try {
         if (hasUnsavedTranscript) {
-        const shouldDiscard = await confirmDiscardDraft();
+            const shouldDiscard = await confirmDiscardDraft();
 
-        if (!shouldDiscard) {
-            return;
-        }
+            if (!shouldDiscard) {
+                return;
+            }
+
+            const discarded = await draft.discard();
+
+            if (!discarded) {
+                return;
+            }
         }
 
         setUploadMessage(null);
         setUploadError(null);
-        setTranscript(null);
-        setHasUnsavedTranscript(false);
 
         const result = await transcribeRecording(recordingUri);
         const text = result.text.trim();
@@ -377,8 +396,7 @@ export default function VoiceRecorder({
         return;
         }
 
-        setTranscript(text);
-        setHasUnsavedTranscript(true);
+        draft.update(text);
 
         setUploadMessage(
         'Đã nhận văn bản. Hãy kiểm tra nội dung trước khi sử dụng.',
@@ -403,6 +421,53 @@ export default function VoiceRecorder({
         operationInProgress.current = false;
     }
     }
+    async function handleSaveDraft(text: string): Promise<boolean> {
+    if (
+        operationInProgress.current ||
+        recorder.isRecording ||
+        pendingCompletion !== null ||
+        isSavingNote
+    ) {
+        return false;
+    }
+
+    operationInProgress.current = true;
+
+    try {
+        return await draft.saveAsNote(() => onSaveTranscript(text));
+    } finally {
+        operationInProgress.current = false;
+    }
+    }
+
+    async function handleDiscardDraft() {
+    if (
+        operationInProgress.current ||
+        draft.busy ||
+        !draft.ready ||
+        recorder.isRecording ||
+        pendingCompletion !== null ||
+        isSavingNote
+    ) {
+        return;
+    }
+
+    operationInProgress.current = true;
+
+    try {
+        if (!draft.cleanupRequired) {
+        const confirmed = await confirmDiscardDraft();
+
+        if (!confirmed) {
+            return;
+        }
+        }
+
+        await draft.discard();
+    } finally {
+        operationInProgress.current = false;
+    }
+    }
 
     const durationSeconds = Math.min(
     MAX_RECORDING_SECONDS,
@@ -412,6 +477,9 @@ export default function VoiceRecorder({
     const isFinalizingRecording = pendingCompletion !== null;
 
     const recordingDisabled =
+    !draft.ready ||
+    draft.busy ||
+    draft.cleanupRequired ||
     isBusy ||
     isUploading ||
     isSavingNote ||
@@ -419,6 +487,9 @@ export default function VoiceRecorder({
     isFinalizingRecording;
 
     const uploadDisabled =
+    !draft.ready ||
+    draft.busy ||
+    draft.cleanupRequired ||
     isBusy ||
     isUploading ||
     isSavingNote ||
@@ -521,27 +592,89 @@ export default function VoiceRecorder({
                 </Text>
                 )}
 
-                {transcript !== null && (
-                <TranscriptEditor
-                    key={`${recordingUri ?? ''}:${transcript}`}
-                    initialText={transcript}
-                    disabled={
-                        !storageReady ||
-                        isSavingNote ||
-                        isBusy ||
-                        isUploading ||
-                        recorderState.isRecording
-                    }
-                    onSave={onSaveTranscript}
-                    onUnsavedChange={setHasUnsavedTranscript}
-                />
-                )}
+                
 
                 {uploadError !== null && (
                 <Text accessibilityRole="alert" style={styles.error}>
                     {uploadError}
                 </Text>
                 )}
+            </View>
+        )}
+        
+        {!draft.ready && draft.error === null && (
+            <Text style={styles.note}>Đang đọc bản nháp...</Text>
+            )}
+
+            {draft.error !== null && (
+            <Text accessibilityRole="alert" style={styles.error}>
+                {draft.error}
+            </Text>
+            )}
+
+            {transcript !== null && (
+            <View style={styles.recordingInfo}>
+                <Text accessibilityLiveRegion="polite" style={styles.note}>
+                {draft.cleanupRequired
+                    ? 'Ghi chú đã lưu; đang chờ dọn bản nháp.'
+                    : draft.status === 'saving'
+                    ? 'Đang lưu bản nháp...'
+                    : draft.status === 'saved'
+                        ? 'Đã lưu bản nháp trên thiết bị.'
+                        : draft.status === 'error'
+                        ? 'Bản nháp chưa được xác nhận lưu.'
+                        : 'Bản nháp văn bản'}
+                </Text>
+
+                <TranscriptEditor
+                value={transcript}
+                disabled={
+                    !storageReady ||
+                    !draft.ready ||
+                    draft.busy ||
+                    draft.cleanupRequired ||
+                    isSavingNote ||
+                    isBusy ||
+                    isUploading ||
+                    isPlaybackBusy ||
+                    isFinalizingRecording ||
+                    recorderState.isRecording
+                }
+                onSave={handleSaveDraft}
+                onTextChange={draft.update}
+                />
+
+                {draft.status === 'error' && !draft.cleanupRequired && draft.ready && (
+                <Pressable
+                    accessibilityRole="button"
+                    disabled={draft.busy || isBusy || isUploading || isSavingNote}
+                    onPress={() => draft.update(transcript)}
+                    style={styles.button}
+                >
+                    <Text style={styles.buttonText}>Thử lưu lại bản nháp</Text>
+                </Pressable>
+                )}
+
+                <Pressable
+                accessibilityRole="button"
+                disabled={
+                    draft.busy ||
+                    isBusy ||
+                    isUploading ||
+                    isSavingNote ||
+                    isPlaybackBusy ||
+                    isFinalizingRecording ||
+                    recorderState.isRecording
+                }
+                onPress={handleDiscardDraft}
+                style={styles.button}
+                >
+                <Text style={styles.buttonText}>
+                    {draft.cleanupRequired
+                    ? 'Dọn bản nháp đã lưu'
+                    : 'Bỏ bản nháp'}
+                </Text>
+                </Pressable>
             </View>
         )}
 

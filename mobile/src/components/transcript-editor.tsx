@@ -8,19 +8,20 @@ import {
 } from 'react-native';
 
 type TranscriptEditorProps = {
-  initialText: string;
+  value: string;
   disabled: boolean;
   onSave: (text: string) => Promise<boolean>;
-  onUnsavedChange: (hasUnsavedChanges: boolean) => void;
+  onTextChange: (text: string) => void;
 };
 
 export default function TranscriptEditor({
-  initialText,
+  value,
   disabled,
   onSave,
-  onUnsavedChange,
+  onTextChange,
 }: TranscriptEditorProps) {
-  const [draft, setDraft] = useState(initialText);
+  const draft = value;
+
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +45,6 @@ export default function TranscriptEditor({
 
       if (success) {
         setSaved(true);
-        onUnsavedChange(false);
       } else {
         setError('Chưa lưu được. Nội dung được giữ lại để thử lại.');
       }
@@ -66,10 +66,9 @@ export default function TranscriptEditor({
         style={styles.input}
         value={draft}
         onChangeText={(text) => {
-            setDraft(text);
             setSaved(false);
             setError(null);
-            onUnsavedChange(true);
+            onTextChange(text);
         }}
         multiline
         textAlignVertical="top"
@@ -114,10 +113,10 @@ export default function TranscriptEditor({
       )}
 
       <Text style={styles.note}>
-        Bản nháp chưa được lưu tự động. App sẽ hỏi trước khi thu mới
-        hoặc nhận dạng lại nếu còn văn bản chưa lưu. Reload hoặc đóng app
-        vẫn có thể làm mất bản nháp.
-      </Text>
+        Văn bản được tự lưu riêng dưới dạng bản nháp trên thiết bị.
+        Hãy kiểm tra trạng thái lưu trước khi đóng app. Audio không
+        được khôi phục cùng bản nháp.
+       </Text>
     </View>
   );
 }
