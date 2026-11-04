@@ -102,6 +102,7 @@ export function useTranscriptDraft() {
       setText(null);
       setStatus('idle');
       setCleanupRequired(false);
+      setError(null);
 
       return true;
     } catch (error: unknown) {
@@ -138,10 +139,19 @@ export function useTranscriptDraft() {
     setBusy(true);
     setError(null);
 
+    // Không cho kết quả tự lưu cũ cập nhật trạng thái
+    // trong lúc đang chuyển bản nháp thành ghi chú.
+    ++revision.current;
+
     try {
-      const success = await saveNote();
+    const success = await saveNote();
 
       if (!success) {
+        setStatus('error');
+        setError(
+            'Chưa lưu được ghi chú. Bản nháp vẫn ở trên màn hình; ' +
+            'hãy thử lưu ghi chú hoặc lưu lại bản nháp trước khi đóng app.',
+        );
         return false;
       }
 
@@ -156,6 +166,7 @@ export function useTranscriptDraft() {
         setText(null);
         setStatus('idle');
         setCleanupRequired(false);
+        setError(null);
       } catch (error: unknown) {
         console.error('Ghi chú đã lưu nhưng chưa dọn được bản nháp:', error);
         setStatus('error');
@@ -168,6 +179,7 @@ export function useTranscriptDraft() {
       return true;
     } catch (error: unknown) {
       console.error('Không thể lưu ghi chú từ bản nháp:', error);
+      setStatus('error');
       setError('Chưa lưu được ghi chú. Bản nháp vẫn được giữ lại.');
       return false;
     } finally {

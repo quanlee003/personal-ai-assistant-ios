@@ -189,14 +189,6 @@ export default function VoiceRecorder({
         ) {
         return;
     }
-    if (
-        operationInProgress.current ||
-        recorder.isRecording ||
-        !recordingUri ||
-        !player.isLoaded
-    ) {
-        return;
-    }
 
     operationInProgress.current = true;
     setIsPlaybackBusy(true);
@@ -349,14 +341,6 @@ export default function VoiceRecorder({
         operationInProgress.current ||
         pendingCompletion !== null ||
         recordingSessionActive.current ||
-        isSavingNote ||
-        recorder.isRecording ||
-        !recordingUri
-    ) {
-        return;
-    }
-    if (
-        operationInProgress.current ||
         isSavingNote ||
         recorder.isRecording ||
         !recordingUri
