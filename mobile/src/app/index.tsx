@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Note } from '../types/note';
 import { loadNotes, saveNotes } from '../services/note-storage';
 import {
+  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -20,6 +21,41 @@ import {
 
 import VoiceRecorder from '../components/voice-recorder';
 import BackendStatus from '../components/backend-status';
+import NoteItem from '../components/note-item';
+
+type NoteChange =
+  | {
+      type: 'update';
+      content: string;
+    }
+  | {
+      type: 'delete';
+    };
+
+function confirmDeleteNote(): Promise<boolean> {
+  return new Promise((resolve) => {
+    Alert.alert(
+      'Xóa ghi chú?',
+      'Ghi chú sẽ bị xóa khỏi danh sách trên thiết bị. ' +
+        'Ứng dụng chưa có thùng rác để khôi phục.',
+      [
+        {
+          text: 'Giữ lại',
+          style: 'cancel',
+          onPress: () => resolve(false),
+        },
+        {
+          text: 'Xóa ghi chú',
+          style: 'destructive',
+          onPress: () => resolve(true),
+        },
+      ],
+      {
+        cancelable: false,
+      },
+    );
+  });
+}
 
 export default function HomeScreen() {
   const [instruction, setInstruction] = useState('');
@@ -195,6 +231,71 @@ export default function HomeScreen() {
     }
   }
 
+  async function handleChangeNote(
+    noteId: string,
+    change: NoteChange,
+  ): Promise<boolean> {
+    if (!storageReady || submissionInProgress.current) {
+      return false;
+    }
+
+    const targetNote = notes.find((note) => note.id === noteId);
+
+    if (!targetNote) {
+      setStorageError('Không tìm thấy ghi chú cần thay đổi.');
+      return false;
+    }
+
+    if (change.type === 'update' && change.content.trim().length === 0) {
+      setStorageError('Nội dung ghi chú không được để trống.');
+      return false;
+    }
+
+    submissionInProgress.current = true;
+    setIsSaving(true);
+    setStorageError(null);
+
+    try {
+      if (change.type === 'delete') {
+        const confirmed = await confirmDeleteNote();
+
+        if (!confirmed) {
+          return false;
+        }
+      }
+
+      const updatedNotes =
+        change.type === 'update'
+          ? notes.map((note) =>
+              note.id === noteId
+                ? { ...note, content: change.content.trim() }
+                : note,
+            )
+          : notes.filter((note) => note.id !== noteId);
+
+      await saveNotes(updatedNotes);
+
+      setNotes(updatedNotes);
+
+      return true;
+    } catch (error: unknown) {
+      console.error('Không thể thay đổi ghi chú:', error);
+
+      setStorageError(
+        change.type === 'update'
+          ? 'Không thể hoàn tất cập nhật ghi chú. ' +
+              'Nội dung đang sửa được giữ lại để bạn thử lại.'
+          : 'Không thể hoàn tất xóa ghi chú. ' +
+              'Danh sách trên màn hình được giữ nguyên.',
+      );
+
+      return false;
+    } finally {
+      setIsSaving(false);
+      submissionInProgress.current = false;
+    }
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -293,10 +394,23 @@ export default function HomeScreen() {
               {notes.length === 0 ? (
                 <Text style={styles.note}>Chưa có ghi chú nào.</Text>
               ) : (
-                notes.map((note) => (
-                  <View key={note.id} style={styles.noteItem}>
-                    <Text style={styles.result}>{note.content}</Text>
-                  </View>
+                  notes.map((note) => (
+                  <NoteItem
+                    key={note.id}
+                    note={note}
+                    disabled={!storageReady || isSaving}
+                    onSave={(content) =>
+                      handleChangeNote(note.id, {
+                        type: 'update',
+                        content,
+                      })
+                    }
+                    onDelete={() =>
+                      handleChangeNote(note.id, {
+                        type: 'delete',
+                      })
+                    }
+                  />
                 ))
               )}
             </View>
