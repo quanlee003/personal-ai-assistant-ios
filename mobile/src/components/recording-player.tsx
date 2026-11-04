@@ -1,73 +1,42 @@
-import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import {
-  setAudioModeAsync,
-  useAudioPlayer,
-  useAudioPlayerStatus,
-} from 'expo-audio';
 
 type RecordingPlayerProps = {
-  uri: string;
+  isLoaded: boolean;
+  isPlaying: boolean;
+  isBusy: boolean;
+  disabled: boolean;
+  currentTime: number;
+  duration: number;
+  errorMessage: string | null;
+  onTogglePlayback: () => Promise<void>;
 };
 
-export default function RecordingPlayer({ uri }: RecordingPlayerProps) {
-  const player = useAudioPlayer(uri);
-  const status = useAudioPlayerStatus(player);
-
-  const [isBusy, setIsBusy] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const operationInProgress = useRef(false);
-
-  async function handlePlayback() {
-    if (operationInProgress.current || !player.isLoaded) {
-      return;
-    }
-
-    operationInProgress.current = true;
-    setIsBusy(true);
-    setErrorMessage(null);
-
-    try {
-      if (player.playing) {
-        player.pause();
-      } else {
-        await setAudioModeAsync({
-          allowsRecording: false,
-          playsInSilentMode: true,
-          shouldPlayInBackground: false,
-        });
-
-        await player.seekTo(0);
-        player.play();
-      }
-    } catch (error: unknown) {
-      console.error('Không thể phát bản ghi:', error);
-
-      setErrorMessage(
-        'Không thể phát bản ghi. Hãy thử lại hoặc thu một đoạn mới.',
-      );
-    } finally {
-      setIsBusy(false);
-      operationInProgress.current = false;
-    }
-  }
-
-  const disabled = isBusy || !status.isLoaded;
-
+export default function RecordingPlayer({
+  isLoaded,
+  isPlaying,
+  isBusy,
+  disabled,
+  currentTime,
+  duration,
+  errorMessage,
+  onTogglePlayback,
+}: RecordingPlayerProps) {
   return (
     <View style={styles.container}>
       <Text style={styles.status}>
-        {status.isLoaded
-          ? `${Math.floor(status.currentTime)} / ${Math.floor(status.duration)} giây`
+        {isLoaded
+          ? `${Math.floor(currentTime)} / ${Math.floor(duration)} giây`
           : 'Đang tải bản ghi...'}
       </Text>
 
       <Pressable
         accessibilityRole="button"
-        accessibilityState={{ disabled }}
+        accessibilityState={{
+          disabled,
+          busy: isBusy,
+        }}
         disabled={disabled}
-        onPress={handlePlayback}
+        onPress={onTogglePlayback}
         style={({ pressed }) => [
           styles.button,
           (pressed || disabled) && styles.dimmed,
@@ -76,8 +45,8 @@ export default function RecordingPlayer({ uri }: RecordingPlayerProps) {
         <Text style={styles.buttonText}>
           {isBusy
             ? 'Đang xử lý...'
-            : status.playing
-              ? 'Dừng phát'
+            : isPlaying
+              ? 'Tạm dừng phát'
               : 'Phát từ đầu'}
         </Text>
       </Pressable>

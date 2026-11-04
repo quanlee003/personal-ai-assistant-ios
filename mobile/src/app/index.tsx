@@ -237,7 +237,7 @@ export default function HomeScreen() {
             <TextInput
               accessibilityLabel="Nhập yêu cầu cho trợ lý"
               style={styles.input}
-              placeholder="Ví dụ: Mở Spotify"
+              placeholder="Ví dụ: ghi chú: Mai họp lúc 9 giờ"
               placeholderTextColor="#94A3B8"
               value={instruction}
               onChangeText={setInstruction}

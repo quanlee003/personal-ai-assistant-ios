@@ -50,9 +50,10 @@ export function handleCommand(instruction: string): CommandResult {
       return {
         status: 'completed',
         message:
-        'Bộ xử lý lệnh cục bộ đang hoạt động. ' +
-        'Ứng dụng hỗ trợ lưu ghi chú trên thiết bị. ' +
-        'Chưa kết nối AI hoặc microphone.',
+            'Bộ xử lý lệnh cục bộ đang hoạt động. ' +
+            'Ứng dụng hỗ trợ thu âm, chuyển giọng nói thành văn bản ' +
+            'qua Deepgram và lưu ghi chú trên thiết bị. ' +
+            'Chưa tích hợp trợ lý hội thoại AI.',
       };
 
     default:

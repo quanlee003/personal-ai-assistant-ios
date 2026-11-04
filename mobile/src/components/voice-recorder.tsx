@@ -10,6 +10,8 @@ import {
   AudioModule,
   RecordingPresets,
   setAudioModeAsync,
+  useAudioPlayer,
+  useAudioPlayerStatus,
   useAudioRecorder,
   useAudioRecorderState,
 } from 'expo-audio';
@@ -58,6 +60,11 @@ export default function VoiceRecorder({
 
   const [isBusy, setIsBusy] = useState(false);
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
+  const player = useAudioPlayer(recordingUri);
+  const playerStatus = useAudioPlayerStatus(player);
+
+  const [isPlaybackBusy, setIsPlaybackBusy] = useState(false);
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [isUploading, setIsUploading] = useState(false);
@@ -67,6 +74,45 @@ export default function VoiceRecorder({
   const [hasUnsavedTranscript, setHasUnsavedTranscript] = useState(false);
 
   const operationInProgress = useRef(false);
+
+  async function handlePlayback() {
+    if (
+        operationInProgress.current ||
+        recorder.isRecording ||
+        !recordingUri ||
+        !player.isLoaded
+    ) {
+        return;
+    }
+
+    operationInProgress.current = true;
+    setIsPlaybackBusy(true);
+    setPlaybackError(null);
+
+    try {
+        if (player.playing) {
+        player.pause();
+        } else {
+        await setAudioModeAsync({
+            allowsRecording: false,
+            playsInSilentMode: true,
+            shouldPlayInBackground: false,
+        });
+
+        await player.seekTo(0);
+        player.play();
+        }
+    } catch (error: unknown) {
+        console.error('Không thể phát bản ghi:', error);
+
+        setPlaybackError(
+        'Không thể phát bản ghi. Hãy thử lại hoặc thu một đoạn mới.',
+        );
+    } finally {
+        setIsPlaybackBusy(false);
+        operationInProgress.current = false;
+    }
+    }
 
   async function handleToggleRecording() {
     if (operationInProgress.current || isSavingNote) {
@@ -106,16 +152,23 @@ export default function VoiceRecorder({
 
         if (!permission.granted) {
             setErrorMessage(
-            'Chưa có quyền microphone. Nếu đã từ chối quyền, ' +
+                'Chưa có quyền microphone. Nếu đã từ chối quyền, ' +
                 'hãy kiểm tra quyền microphone của Expo Go trong Settings.',
             );
             return;
         }
 
+        if (player.isLoaded) {
+            player.pause();
+        }
+
+        setPlaybackError(null);
+
         await setAudioModeAsync({
-            allowsRecording: true,
-            playsInSilentMode: true,
-            allowsBackgroundRecording: false,
+        allowsRecording: true,
+        playsInSilentMode: true,
+        allowsBackgroundRecording: false,
+        shouldPlayInBackground: false,
         });
 
         setRecordingUri(null);
@@ -209,14 +262,26 @@ export default function VoiceRecorder({
         recorderState.durationMillis / 1000,
     );
 
-    const recordingDisabled = isBusy || isUploading || isSavingNote;
+    const recordingDisabled =
+    isBusy ||
+    isUploading ||
+    isSavingNote ||
+    isPlaybackBusy;
 
     const uploadDisabled =
-        isBusy ||
-        isUploading ||
-        isSavingNote ||
-        recorderState.isRecording ||
-        recordingUri === null;
+    isBusy ||
+    isUploading ||
+    isSavingNote ||
+    isPlaybackBusy ||
+    recorderState.isRecording ||
+    recordingUri === null;
+
+    const playbackDisabled =
+    isBusy ||
+    isPlaybackBusy ||
+    recorderState.isRecording ||
+    recordingUri === null ||
+    !playerStatus.isLoaded;
 
   return (
     <View style={styles.card}>
@@ -240,11 +305,11 @@ export default function VoiceRecorder({
         ]}
         >
         <Text style={styles.buttonText}>
-            {isUploading
-            ? 'Đang gửi bản ghi...'
-            : isBusy
-                ? 'Đang xử lý...'
-                : recorderState.isRecording
+        {isUploading
+            ? 'Đang nhận dạng...'
+            : isBusy || isPlaybackBusy
+            ? 'Đang xử lý...'
+            : recorderState.isRecording
                 ? 'Dừng thu âm'
                 : 'Bắt đầu thu âm'}
         </Text>
@@ -264,7 +329,16 @@ export default function VoiceRecorder({
                 {recordingUri}
                 </Text>
 
-                <RecordingPlayer key={recordingUri} uri={recordingUri} />
+                <RecordingPlayer
+                isLoaded={playerStatus.isLoaded}
+                isPlaying={playerStatus.playing}
+                isBusy={isPlaybackBusy}
+                disabled={playbackDisabled}
+                currentTime={playerStatus.currentTime}
+                duration={playerStatus.duration}
+                errorMessage={playbackError}
+                onTogglePlayback={handlePlayback}
+                />
 
                 <Pressable
                 accessibilityRole="button"
@@ -380,16 +454,5 @@ const styles = StyleSheet.create({
     color: '#FCA5A5',
     fontSize: 14,
     lineHeight: 22,
-  },
-    transcriptBox: {
-    backgroundColor: '#0F172A',
-    borderRadius: 12,
-    padding: 16,
-    gap: 8,
-  },
-    transcriptText: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    lineHeight: 26,
   },
 });
