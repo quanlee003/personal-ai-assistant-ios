@@ -1,0 +1,1 @@
+"""Vietnamese iPhone assistant. Device execution is not implemented yet."""
