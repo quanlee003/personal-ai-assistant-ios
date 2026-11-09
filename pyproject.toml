@@ -9,6 +9,11 @@ description = "Vietnamese voice-controlled iPhone assistant"
 requires-python = ">=3.11"
 dependencies = []
 
+[project.optional-dependencies]
+windows = [
+    "pyttsx3>=2.90,<3",
+]
+
 [project.scripts]
 iphone-assistant = "iphone_assistant.cli:main"
 
