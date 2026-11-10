@@ -4,7 +4,7 @@ import argparse
 import os
 from dotenv import load_dotenv
 
-from .commands import UnsupportedCommand, parse_command
+from .intent import IntentError, understand_intent
 from .speech import (
     SpeechInputError,
     record_wav,
@@ -107,11 +107,28 @@ def main() -> None:
 
         print(f"Nhận dạng: {transcript}")
 
-        # Chỉ loại dấu kết câu ở ngoài cùng.
-        # Không viết thường hoặc bỏ dấu nội dung cần nhập.
-        command_text = transcript.rstrip(" .!?。！？")
+        print("Đang hiểu yêu cầu qua Vercel AI Gateway...")
 
-        command = parse_command(command_text)
+        result = understand_intent(transcript)
+
+        if result.decision == "clarify":
+            print(f"Cần làm rõ: {result.message}")
+            print(
+                "Chưa thực hiện thao tác. "
+                "Chạy lại và nói đầy đủ yêu cầu."
+            )
+            return
+
+        if result.decision == "unsupported":
+            print(f"Chưa hỗ trợ: {result.message}")
+            return
+
+        command = result.command
+
+        if command is None:
+            raise IntentError(
+                "Không có hành động hợp lệ để thực hiện."
+            )
 
         if command.action == "stop":
             print(
@@ -154,7 +171,7 @@ def main() -> None:
 
     except (
         SpeechInputError,
-        UnsupportedCommand,
+        IntentError,
         UnsupportedVoiceControlCommand,
         SpeechError,
     ) as exc:
