@@ -30,6 +30,10 @@ def parse_command(text: str) -> Command:
     raw = text.strip()
     key = normalize(raw)
 
+    # Chấp nhận cả "lướt" và "vuốt" cho cử chỉ swipe.
+    if key.startswith("luot "):
+        key = "vuot " + key[len("luot "):]
+
     if not key:
         raise UnsupportedCommand("Lệnh trống.")
 
