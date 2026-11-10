@@ -29,6 +29,8 @@ class ModelIntent(BaseModel):
         "enter_text",
         "submit",
         "go_home",
+        "show_numbers",
+        "show_names",
         "stop",
     ]
 
@@ -95,6 +97,44 @@ Quy tắc:
 Chỉ trả kết quả theo schema được cung cấp.
 """
 
+SYSTEM_PROMPT += """
+
+Khả năng thực thi của phiên bản hiện tại:
+- swipe
+- open_app: YouTube, Safari, Settings, Chrome, Spotify
+- go_home
+- show_numbers
+- show_names
+- select_target: chỉ chọn theo số từ 1 đến 999
+
+Các cách nói:
+- "hiện số", "đánh số các nút", "cho tôi xem số":
+  action show_numbers.
+- "hiện tên các nút", "cho xem tên":
+  action show_names.
+- "bấm số năm", "chọn số 5":
+  action select_target, value="5".
+- "bấm số hai mươi ba":
+  action select_target, value="23".
+- "vào YouTube hộ tôi":
+  action open_app, value="YouTube".
+- "trở về màn hình chính":
+  action go_home.
+
+Với show_numbers, show_names, go_home:
+direction="none", value="".
+
+Không có ảnh màn hình:
+- Không tự chọn số tương ứng với một nút.
+- Nếu người dùng chỉ nói "bấm tìm kiếm", trả clarify:
+  "Bạn hãy yêu cầu hiện số, rồi nói số cạnh nút tìm kiếm."
+- Không khẳng định một số vẫn thuộc cùng một nút sau khi
+  màn hình đã thay đổi.
+- Chưa hỗ trợ nhập chữ, submit hoặc tìm kiếm nhiều bước.
+  Với những yêu cầu đó, trả unsupported.
+- Nếu app không có trong danh sách hỗ trợ, trả unsupported.
+"""
+
 
 def validate_intent(item: ModelIntent) -> IntentResult:
     if item.decision != "action":
@@ -154,7 +194,13 @@ def validate_intent(item: ModelIntent) -> IntentResult:
             {argument_name: item.value},
         )
 
-    elif item.action in {"submit", "go_home", "stop"}:
+    elif item.action in {
+        "submit",
+        "go_home",
+        "show_numbers",
+        "show_names",
+        "stop",
+    }:
         if item.direction != "none" or item.value != "":
             raise IntentError(
                 "Model trả hành động có tham số thừa."
