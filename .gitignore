@@ -23,4 +23,4 @@ transcripts/
 pairing_records/
 *.pem
 *.key
-/.venv-device
+/.venv-device-x64
