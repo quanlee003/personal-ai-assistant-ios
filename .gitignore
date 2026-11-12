@@ -24,3 +24,4 @@ pairing_records/
 *.pem
 *.key
 /.venv-device-x64
+captures/
