@@ -120,7 +120,7 @@ def observe_screen(
 
     model = os.environ.get(
         "AI_GATEWAY_VISION_MODEL",
-        "google/gemini-2.5-flash-lite",
+        "google/gemini-2.5-flash",
     ).strip()
 
     if not api_key:
