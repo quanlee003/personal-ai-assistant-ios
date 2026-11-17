@@ -2,6 +2,10 @@ import argparse
 import os
 from pathlib import Path
 
+from time import monotonic
+
+from .tts import SpeechError, WindowsSpeaker
+
 from dotenv import load_dotenv
 from pydantic import Field
 
@@ -116,8 +120,9 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(
         description=(
-            "Đọc số Voice Control từ screenshot "
-            "và đề xuất lệnh. Không phát TTS."
+            "Đọc số Voice Control từ screenshot. "
+            "Mặc định xem trước; thêm --speak "
+            "để phát sau khi xác nhận."
         )
     )
 
@@ -133,7 +138,41 @@ def main() -> None:
         help="Dùng PNG có sẵn thay vì chụp màn hình mới",
     )
 
+    parser.add_argument(
+        "--speak",
+        action="store_true",
+        help="Cho phép phát lệnh sau khi xác nhận",
+    )
+
+    parser.add_argument(
+        "--voice-id",
+        default=os.environ.get("TTS_VOICE_ID", "").strip(),
+        help="ID giọng tiếng Anh; mặc định đọc từ .env",
+    )
+
+    parser.add_argument(
+        "--rate",
+        type=int,
+        default=150,
+        help="Tốc độ đọc, từ 80 đến 250",
+    )
+
     args = parser.parse_args()
+
+    if args.speak and args.image is not None:
+        parser.error(
+            "Không được dùng --speak cùng --image. "
+            "Ảnh lưu chỉ dùng để kiểm thử quan sát."
+        )
+
+    if args.speak and not args.voice_id:
+        parser.error(
+            "Chưa có giọng TTS. Đặt TTS_VOICE_ID "
+            "trong .env hoặc truyền --voice-id."
+        )
+
+    if not 80 <= args.rate <= 250:
+        parser.error("--rate phải nằm trong khoảng 80–250.")
 
     if not args.request.strip():
         parser.error("Yêu cầu không được trống.")
@@ -145,7 +184,23 @@ def main() -> None:
             "Chưa đặt AI_GATEWAY_API_KEY trong .env."
         )
 
+    speaker = None
+    captured_at = None
+
     try:
+        if args.speak:
+            speaker = WindowsSpeaker()
+
+            available_ids = {
+                voice.id
+                for voice in speaker.list_voices()
+            }
+
+            if args.voice_id not in available_ids:
+                raise SpeechError(
+                    "Voice ID không tồn tại. "
+                    "Kiểm tra lại TTS_VOICE_ID."
+                )
         print(
             "Hãy bật Show numbers trên iPhone "
             "và giữ nguyên màn hình."
@@ -169,6 +224,7 @@ def main() -> None:
                 flush=True,
             )
             image_path = capture_screen()
+            captured_at = monotonic()
         else:
             image_path = args.image.resolve()
 
@@ -222,24 +278,103 @@ def main() -> None:
             )
 
         print(f"Thông tin: {result.message}")
+
+        if result.status != "found":
+            print(
+                "Chưa xác định được mục tiêu và số hợp lệ. "
+                "Không phát lệnh."
+            )
+            return
+
+        if not args.speak:
+            print(
+                "Chỉ xem trước: không phát TTS "
+                "và không thực hiện thao tác."
+            )
+
+            if args.image is not None:
+                print(
+                    "Đây là kết quả từ ảnh lưu, "
+                    "không dùng để điều khiển màn hình hiện tại."
+                )
+            else:
+                print(
+                    "Số được đọc từ ảnh vừa chụp. "
+                    "Không tái sử dụng nếu màn hình thay đổi."
+                )
+
+            return
+
+        if speaker is None or captured_at is None:
+            raise SpeechError(
+                "Chưa sẵn sàng phát lệnh từ ảnh chụp mới."
+            )
+
+        # Giới hạn thử nghiệm, không phải bảo đảm ảnh còn đúng.
+        max_age_seconds = 60.0
+
+        if monotonic() - captured_at > max_age_seconds:
+            print(
+                "Ảnh đã quá 60 giây. "
+                "Chạy lại để chụp ảnh mới. Không phát lệnh."
+            )
+            return
+
+        phrase = f"Tap {result.voice_control_number}"
+
         print(
-            "Chỉ xem trước: không phát TTS "
-            "và không thực hiện thao tác."
-        )
-        print(
-            "Số chỉ được đề xuất từ ảnh vừa chụp. "
-            "Không tái sử dụng nếu màn hình đã thay đổi."
+            "\nKiểm tra trực tiếp trên iPhone:"
+            f"\n- Số {result.voice_control_number} vẫn gắn "
+            f"với {result.target_description}."
+            "\n- Màn hình và lớp số chưa thay đổi."
+            "\nNếu không khớp, hủy và chạy lại."
         )
 
-    except (VisionError, DeviceError, OSError) as exc:
+        confirmation = input(
+            f"Nhập y để phát '{phrase}'; Enter để hủy: "
+        )
+
+        if confirmation.strip().casefold() != "y":
+            print("Đã hủy. Không phát lệnh.")
+            return
+
+        if monotonic() - captured_at > max_age_seconds:
+            print(
+                "Ảnh đã quá 60 giây trong lúc chờ xác nhận. "
+                "Chạy lại để chụp ảnh mới. Không phát lệnh."
+            )
+            return
+
+        speaker.speak(
+            phrase,
+            voice_id=args.voice_id,
+            rate=args.rate,
+        )
+
+        print(
+            "TTS đã hoàn tất phát câu lệnh. "
+            "Chưa xác nhận thao tác trên iPhone."
+        )
+
+    except (
+        VisionError,
+        DeviceError,
+        SpeechError,
+        OSError,
+    ) as exc:
         parser.exit(1, f"Lỗi: {exc}\n")
 
     except (KeyboardInterrupt, EOFError):
         print(
-            "\nĐã dừng. Việc dừng không thu hồi "
-            "ảnh nếu yêu cầu đã được gửi."
+            "\nĐã dừng phía máy tính. "
+            "Ảnh đã gửi không được thu hồi; "
+            "âm thanh đã phát có thể đã được iPhone nhận."
         )
         raise SystemExit(130)
+
+    finally:
+        if speaker is not None:
+            speaker.close()
 
 
 if __name__ == "__main__":
