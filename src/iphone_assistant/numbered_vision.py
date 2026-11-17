@@ -19,7 +19,11 @@ from .vision import (
     VisionError,
     observe_screen,
 )
-
+from .speech import (
+    SpeechInputError,
+    record_wav,
+    transcribe_vietnamese,
+)
 
 class NumberedObservation(ScreenObservation):
     voice_control_number: int = Field(
@@ -111,6 +115,58 @@ def validate_numbered_result(
 
     return result
 
+def get_request(
+    typed_request: str | None,
+    *,
+    listen: bool,
+    mic_device: int | None,
+) -> str | None:
+    if not listen:
+        return typed_request.strip() if typed_request else None
+
+    print(
+        "Audio sẽ được gửi đến Deepgram "
+        "để nhận dạng tiếng Việt."
+    )
+
+    audio = record_wav(device=mic_device)
+
+    print("Đang nhận dạng bằng Deepgram...", flush=True)
+    transcript = transcribe_vietnamese(audio)
+
+    print(f"Nhận dạng: {transcript}")
+
+    normalized = transcript.casefold().strip(
+        " \t\r\n.!?。！？"
+    )
+
+    if normalized in {
+        "dừng",
+        "dừng lại",
+        "hủy",
+        "hủy bỏ",
+        "thôi",
+        "stop",
+        "cancel",
+    }:
+        print("Đã hủy lượt hiện tại. Không chụp hoặc phát lệnh.")
+        return None
+
+    print(
+        "Lượt này chỉ tìm và chọn một phần tử đang hiển thị. "
+        "Chưa hỗ trợ yêu cầu nhiều bước."
+    )
+
+    confirmation = input(
+        "Transcript đúng yêu cầu của bạn? "
+        "Nhập y để tiếp tục; Enter để hủy: "
+    )
+
+    if confirmation.strip().casefold() != "y":
+        print("Đã hủy. Không chụp hoặc phát lệnh.")
+        return None
+
+    return transcript
 
 def main() -> None:
     load_dotenv(
@@ -128,7 +184,21 @@ def main() -> None:
 
     parser.add_argument(
         "request",
+        nargs="?",
         help='Ví dụ: "Tìm biểu tượng Cài đặt"',
+    )
+
+    parser.add_argument(
+        "--listen",
+        action="store_true",
+        help="Thu yêu cầu tiếng Việt qua microphone",
+    )
+
+    parser.add_argument(
+        "--mic-device",
+        type=int,
+        default=None,
+        help="ID microphone; mặc định dùng thiết bị hệ thống",
     )
 
     parser.add_argument(
@@ -174,8 +244,30 @@ def main() -> None:
     if not 80 <= args.rate <= 250:
         parser.error("--rate phải nằm trong khoảng 80–250.")
 
-    if not args.request.strip():
-        parser.error("Yêu cầu không được trống.")
+    if args.listen:
+        if args.request is not None:
+            parser.error(
+                "Chọn một nguồn đầu vào: "
+                "gõ yêu cầu hoặc dùng --listen."
+            )
+
+        if not os.environ.get(
+            "DEEPGRAM_API_KEY", ""
+        ).strip():
+            parser.error(
+                "Chưa đặt DEEPGRAM_API_KEY trong .env."
+            )
+
+    elif not args.request or not args.request.strip():
+        parser.error(
+            "Nhập yêu cầu hoặc thêm --listen "
+            "để dùng microphone."
+        )
+
+    if args.mic_device is not None and not args.listen:
+        parser.error(
+            "--mic-device chỉ dùng cùng --listen."
+        )
 
     if not os.environ.get(
         "AI_GATEWAY_API_KEY", ""
@@ -218,6 +310,15 @@ def main() -> None:
             print("Đã hủy. Không chụp hoặc gửi ảnh.")
             return
 
+        request = get_request(
+            typed_request=args.request,
+            listen=args.listen,
+            mic_device=args.mic_device,
+        )
+
+        if request is None:
+            return
+
         if args.image is None:
             print(
                 "Đang chụp màn hình iPhone...",
@@ -244,7 +345,7 @@ def main() -> None:
 
         observation = observe_screen(
             image_path=image_path,
-            request=args.request,
+            request=request,
             system_prompt=NUMBERED_SYSTEM_PROMPT,
             result_schema=NumberedObservation,
         )
@@ -359,6 +460,7 @@ def main() -> None:
     except (
         VisionError,
         DeviceError,
+        SpeechInputError,
         SpeechError,
         OSError,
     ) as exc:
