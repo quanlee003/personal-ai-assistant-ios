@@ -224,7 +224,7 @@ def observe_screen(
         raise VisionError("Model trả nội dung trống.")
 
     try:
-        result = ScreenObservation.model_validate_json(
+        result = result_schema.model_validate_json(
             content
         )
     except ValidationError as exc:
