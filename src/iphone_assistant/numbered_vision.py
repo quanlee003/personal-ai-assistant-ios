@@ -25,6 +25,8 @@ from .speech import (
     transcribe_vietnamese,
 )
 
+from .verification import verify_after_action
+
 class NumberedObservation(ScreenObservation):
     voice_control_number: int = Field(
         strict=True,
@@ -227,7 +229,39 @@ def main() -> None:
         help="Tốc độ đọc, từ 80 đến 250",
     )
 
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Cho phép kiểm tra màn hình sau khi phát lệnh",
+    )
+
+    parser.add_argument(
+        "--expect",
+        default=None,
+        help="Trạng thái màn hình mong đợi sau thao tác",
+    )
+
     args = parser.parse_args()
+
+    if args.verify and not args.speak:
+        parser.error(
+            "--verify cần --speak vì chỉ kiểm tra "
+            "sau khi phát lệnh."
+        )
+
+    if args.verify:
+        if not args.expect or not args.expect.strip():
+            parser.error(
+                "--verify cần --expect với mô tả "
+                "màn hình mong đợi."
+            )
+
+        args.expect = args.expect.strip()
+
+    elif args.expect is not None:
+        parser.error(
+            "--expect chỉ dùng cùng --verify."
+        )
 
     if args.speak and args.image is not None:
         parser.error(
@@ -431,6 +465,12 @@ def main() -> None:
             "\nNếu không khớp, hủy và chạy lại."
         )
 
+        if args.verify:
+            print(
+                "Sau khi phát sẽ kiểm tra trạng thái: "
+                f"{args.expect}"
+            )
+
         confirmation = input(
             f"Nhập y để phát '{phrase}'; Enter để hủy: "
         )
@@ -456,6 +496,24 @@ def main() -> None:
             "TTS đã hoàn tất phát câu lệnh. "
             "Chưa xác nhận thao tác trên iPhone."
         )
+        
+        if args.verify:
+            try:
+                verify_after_action(args.expect)
+            except (
+                VisionError,
+                DeviceError,
+                OSError,
+            ) as exc:
+                print(
+                    "\nKhông hoàn tất được bước kiểm tra: "
+                    f"{exc}"
+                )
+                print(
+                    "Lệnh đã được phát trước đó. "
+                    "Chưa xác định kết quả trên iPhone. "
+                    "Không tự phát lại."
+                )
 
     except (
         VisionError,
