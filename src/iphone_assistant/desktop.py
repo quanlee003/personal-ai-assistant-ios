@@ -1,5 +1,6 @@
 """Native Windows voice-control window; workers never touch Tk widgets."""
 import os
+from datetime import datetime
 from pathlib import Path
 from queue import Empty
 import tkinter as tk
@@ -7,6 +8,7 @@ from tkinter import ttk
 
 from .desktop_controller import DesktopController
 from .direct_cli import PROJECT_ROOT
+from .device_catalog import MESSAGES
 
 BG = '#F3F5F6'
 INK = '#192D38'
@@ -33,6 +35,8 @@ class DesktopApp:
         self.stopping = False
         self.closing = False
         self.last_record = None
+        self.catalog_data = None
+        self.catalog_window = None
         self.root.title('Trợ lý iPhone')
         self.root.geometry('1100x700')
         self.root.minsize(980, 680)
@@ -42,6 +46,7 @@ class DesktopApp:
         self._build()
         self.root.after(50, self._poll)
         self.root.after(100, self.refresh)
+        self.root.after(12000, self._auto_scan)
 
     def _style(self):
         style = ttk.Style(self.root)
@@ -93,6 +98,7 @@ class DesktopApp:
         self.refresh_button.pack(fill='x', pady=(0, 16))
         self._label(left, 'Giữ iPhone mở khóa và kết nối USB. WDA cần được khởi chạy trước.',
                     10, MUTED, wraplength=195).pack(anchor='w')
+        ttk.Button(left, text='Ứng dụng & thiết lập', command=self.show_catalog).pack(fill='x', pady=(12, 0))
 
         self._label(middle, 'Phiên giọng nói', 14, bold=True).pack(anchor='w')
         self.turn = self._label(middle, 'Chưa bắt đầu', 10, MUTED)
@@ -150,6 +156,10 @@ class DesktopApp:
         self.result_text.configure(state='disabled')
 
     def _controls(self, busy):
+        if self.catalog_window and self.catalog_window.winfo_exists():
+            self.scan_button.state(['disabled'] if busy else ['!disabled'])
+            self.setup_button.state(['disabled'] if busy or not (self.readiness and self.readiness.phone
+                                   and self.catalog_data and self.catalog_data.get('status') == 'scanned') else ['!disabled'])
         self.start_button.state(['disabled'] if busy or not (self.readiness and self.readiness.ready) else ['!disabled'])
         self.refresh_button.state(['disabled'] if busy else ['!disabled'])
         self.stop_button.state(['!disabled'] if busy and not self.stopping else ['disabled'])
@@ -159,6 +169,108 @@ class DesktopApp:
         if self.controller.refresh():
             self.stopping = False
             self._controls(True)
+
+    def _auto_scan(self):
+        if not self.closing and not self.controller.busy:
+            if self.controller.scan(force=False):
+                self._controls(True)
+        if not self.closing:
+            self.root.after(12000, self._auto_scan)
+
+    def scan(self):
+        if self.controller.scan():
+            self._controls(True)
+
+    def open_phone_setup(self):
+        if self.controller.open_phone_setup():
+            self._controls(True)
+
+    def show_catalog(self):
+        if self.catalog_window and self.catalog_window.winfo_exists():
+            self.catalog_window.lift()
+            return
+        window = self.catalog_window = tk.Toplevel(self.root)
+        window.title('Ứng dụng & thiết lập iPhone')
+        window.geometry('900x620')
+        window.minsize(760, 540)
+        window.configure(bg=BG)
+        toolbar = tk.Frame(window, bg=BG)
+        toolbar.pack(fill='x', padx=20, pady=16)
+        self._label(toolbar, 'Ứng dụng & thiết lập', 18, bold=True).pack(side='left')
+        self.scan_button = ttk.Button(toolbar, text='Quét lại', command=self.scan)
+        self.scan_button.pack(side='right')
+        self.catalog_status = self._label(window, 'Đang chờ quét thiết bị…', 10, MUTED, wraplength=830)
+        self.catalog_status.pack(fill='x', padx=20, pady=(0, 12))
+        tabs = ttk.Notebook(window)
+        tabs.pack(fill='both', expand=True, padx=20, pady=(0, 16))
+        apps = ttk.Frame(tabs, padding=12)
+        settings = ttk.Frame(tabs, padding=12)
+        tabs.add(apps, text='Ứng dụng trên máy')
+        tabs.add(settings, text='Điều kiện & quyền')
+        self.app_filter = tk.StringVar(value='')
+        ttk.Label(apps, text='Tìm tên app hoặc bundle ID (bao gồm thành phần hệ thống)').pack(anchor='w')
+        search = ttk.Entry(apps, textvariable=self.app_filter)
+        search.pack(fill='x', pady=(6, 10))
+        self.app_filter.trace_add('write', lambda *_: self._render_catalog())
+        table_frame = ttk.Frame(apps)
+        table_frame.pack(fill='both', expand=True)
+        self.apps_table = ttk.Treeview(table_frame, columns=('name', 'type', 'bundle'), show='headings')
+        for key, title, width in [('name', 'Tên ứng dụng', 230), ('type', 'Loại', 90), ('bundle', 'Bundle ID', 380)]:
+            self.apps_table.heading(key, text=title)
+            self.apps_table.column(key, width=width, minwidth=70)
+        scrollbar = ttk.Scrollbar(table_frame, command=self.apps_table.yview)
+        self.apps_table.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side='right', fill='y')
+        self.apps_table.pack(fill='both', expand=True)
+        requirement_frame = ttk.Frame(settings)
+        requirement_frame.pack(fill='both', expand=True)
+        self.requirements = tk.Text(requirement_frame, wrap='word', font=('Segoe UI', 11), bg='white', fg=INK,
+                                    relief='flat', padx=12, pady=12, height=12)
+        requirement_scroll = ttk.Scrollbar(requirement_frame, command=self.requirements.yview)
+        self.requirements.configure(yscrollcommand=requirement_scroll.set)
+        requirement_scroll.pack(side='right', fill='y')
+        self.requirements.pack(fill='both', expand=True)
+        self.setup_button = ttk.Button(settings, text='Mở Thời gian sử dụng trên iPhone', command=self.open_phone_setup)
+        self.setup_button.pack(anchor='w', pady=(12, 0))
+        self.setup_message = ttk.Label(settings, text='Chỉ mở trang thiết lập. Bạn tự bật hoặc cấp quyền trên iPhone.', wraplength=790)
+        self.setup_message.pack(anchor='w', pady=(8, 0))
+        self._render_catalog()
+        self._controls(self.controller.busy)
+
+    def _render_catalog(self):
+        if not self.catalog_window or not self.catalog_window.winfo_exists():
+            return
+        data = self.catalog_data or {'status': 'unknown'}
+        self.apps_table.delete(*self.apps_table.get_children())
+        query = self.app_filter.get().casefold()
+        rows = data.get('apps', [])
+        for row in rows:
+            if query in (row['name'] + ' ' + row['bundle_id']).casefold():
+                self.apps_table.insert('', 'end', values=(row['name'], row['type'], row['bundle_id']))
+        count = sum(row['type'] == 'User' for row in rows)
+        scanned = data.get('status') == 'scanned'
+        captured = datetime.fromisoformat(data['captured_at']).astimezone().strftime('%d/%m/%Y %H:%M') if scanned else ''
+        status = (f"{count} app người dùng · {len(rows)-count} mục khác/hệ thống · Cập nhật: {captured}"
+                  if scanned else MESSAGES.get(data.get('status'), 'Chưa quét thiết bị. Bấm Quét lại.'))
+        self.catalog_status.configure(text=status)
+        wda_ready = self.readiness and self.readiness.phone
+        lines = [
+            'QUÉT DANH SÁCH APP — BẮT BUỘC',
+            'USB & Tin cậy máy tính: ' + ('đã kiểm chứng qua lần đọc app thành công.' if scanned else 'chưa kiểm chứng. Mở khóa iPhone, kết nối USB và chấp nhận Tin cậy nếu iOS hỏi.'),
+            '', 'ĐIỀU KHIỂN MÀN HÌNH — BẮT BUỘC KHI THAO TÁC',
+            'WDA: ' + ('đang phản hồi.' if wda_ready else 'chưa sẵn sàng. Xem Hướng dẫn ở cửa sổ chính.'),
+            'Developer Mode, runner đã ký và kết nối kiểm thử: cần cho WDA; không đọc riêng được trạng thái từng mục từ lần quét app.',
+            '', 'THỜI GIAN SỬ DỤNG — TÙY CHỌN',
+            'Chưa kiểm tra. Không cần bật để quét app. Bấm nút bên dưới để mở trang trên iPhone; nếu chưa bật Hoạt động ứng dụng & web, bạn tự bật khi muốn thu thập báo cáo.',
+            'Bản này chưa đọc báo cáo sử dụng hoặc cấp quyền Screen Time API cho app.',
+            '', 'HEALTHKIT / SỨC KHỎE — KHÔNG CẦN CHO TÍNH NĂNG NÀY',
+            'Xin quyền Sức khỏe hay Family Controls cần app iOS riêng và capability tương ứng. App Windows hiện tại không thể hiện hộp thoại cấp các quyền này.',
+            '', 'Không có một công tắc “full access”. Danh sách lưu local theo thiết bị, không gửi AI/cloud. System có cả thành phần nội bộ, không phải tất cả đều có icon.',
+        ]
+        self.requirements.configure(state='normal')
+        self.requirements.delete('1.0', 'end')
+        self.requirements.insert('1.0', '\n'.join(lines))
+        self.requirements.configure(state='disabled')
 
     def start(self):
         if self.controller.start(int(self.turn_count.get())):
@@ -191,6 +303,27 @@ class DesktopApp:
         self.root.after(50, self._poll)
 
     def _event(self, kind, value):
+        if kind == 'catalog':
+            unchanged = self.catalog_data == value
+            self.catalog_data = value
+            if not unchanged:
+                self._render_catalog()
+            return
+        if kind == 'catalog_scanning':
+            if self.catalog_window and self.catalog_window.winfo_exists():
+                self.catalog_status.configure(text='Đang kiểm tra và quét thiết bị…')
+            return
+        if kind == 'setup_result':
+            if self.catalog_window and self.catalog_window.winfo_exists():
+                self.setup_message.configure(text=value)
+            return
+        if kind == 'finished' and value in {'scanned', 'setup'}:
+            self.stopping = False
+            self._controls(False)
+            if value == 'setup':
+                self.phase.configure(text='Đã kết thúc kiểm tra')
+                self.message.configure(text='Xem hướng dẫn trong Ứng dụng & thiết lập.')
+            return
         phases = {'checking': 'Đang kiểm tra', 'listening': 'Đang nghe',
                   'transcribing': 'Nhận dạng lời nói', 'understanding': 'Đang hiểu yêu cầu',
                   'observing': 'Quan sát iPhone', 'executing': 'Đang thao tác',
@@ -204,6 +337,7 @@ class DesktopApp:
                 ok = getattr(value, key)
                 label.configure(text=('Sẵn sàng' if ok and key != 'services' else 'Đã cấu hình' if ok else 'Cần kiểm tra')
                                 + '\n' + getattr(value, key + '_message'), fg=ACCENT if ok else WARNING)
+            self._render_catalog()
         elif kind == 'turn':
             self.transcript = ''
             self.last_record = None
