@@ -23,5 +23,8 @@ transcripts/
 pairing_records/
 *.pem
 *.key
+*.p12
+*.mobileprovision
+/selfIdentity.plist
 /.venv-device-x64
 captures/

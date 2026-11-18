@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from .device import capture_screen
 from .vision import observe_screen
 
@@ -55,6 +57,15 @@ Trả lời bằng tiếng Việt.
 """
 
 
+def verify_screen(image_path: Path, expected: str):
+    """Return structured evidence for an existing screenshot, without CLI I/O."""
+    return observe_screen(
+        image_path=image_path,
+        request=("Đánh giá xem trạng thái màn hình sau đây có đang hiện trong ảnh hay không:\n" + expected),
+        system_prompt=VERIFICATION_SYSTEM_PROMPT,
+    )
+
+
 def verify_after_action(expected: str) -> None:
     print(
         "\nKiểm tra sau thao tác sẽ chụp một ảnh mới "
@@ -82,15 +93,7 @@ def verify_after_action(expected: str) -> None:
 
     print("Đang đánh giá kết quả...", flush=True)
 
-    result = observe_screen(
-        image_path=image_path,
-        request=(
-            "Đánh giá xem trạng thái màn hình sau đây "
-            "có đang hiện trong ảnh hay không:\n"
-            f"{expected}"
-        ),
-        system_prompt=VERIFICATION_SYSTEM_PROMPT,
-    )
+    result = verify_screen(image_path, expected)
 
     labels = {
         "found": "Phù hợp với trạng thái mong đợi",

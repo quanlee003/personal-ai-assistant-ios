@@ -11,9 +11,9 @@ A Vietnamese voice-controlled iPhone assistant, built independently with archite
 
 ## Status
 
-Architecture initialization only. No working device control, speech recognition, or AI integration has been implemented yet. Device and OS compatibility are not guaranteed.
+Speech (Deepgram), vision (AI Gateway), numbered Voice Control/TTS and screenshot verification modules are implemented. On 18 November 2026, WDA directly opened Settings on the connected iOS 27 iPhone and captured the resulting screen. No TTS was used. This validates that single action, not arbitrary app control.
 
-Development proceeds directly toward the application; there is no separate proof-of-concept phase. Normal debugging and integration checks remain part of implementation.
+Windows setup, evidence, limitations and commands: [Direct control on Windows](docs/direct-windows.md). The separate `iphone_assistant.direct_cli` supports Settings only, defaults to preview and requires confirmation to execute. Optional `--listen --ai --verify` reuses Deepgram and AI Gateway; the complete voice/cloud path has not been tested in this milestone.
 
 See docs/architecture.md.
 

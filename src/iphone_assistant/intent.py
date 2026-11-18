@@ -220,7 +220,7 @@ def validate_intent(item: ModelIntent) -> IntentResult:
     )
 
 
-def understand_intent(transcript: str) -> IntentResult:
+def understand_intent(transcript: str, *, system_prompt: str = SYSTEM_PROMPT) -> IntentResult:
     if not transcript.strip():
         raise IntentError("Transcript trống.")
 
@@ -253,7 +253,7 @@ def understand_intent(transcript: str) -> IntentResult:
                 messages=[
                     {
                         "role": "system",
-                        "content": SYSTEM_PROMPT,
+                        "content": system_prompt,
                     },
                     {
                         "role": "user",
