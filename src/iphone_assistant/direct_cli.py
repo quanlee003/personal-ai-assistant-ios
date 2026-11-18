@@ -2,11 +2,13 @@
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from .commands import normalize, UnsupportedCommand
-from .device import PROJECT_ROOT
 from .direct import (ActionResult, execute, validate_command, parse_direct_command,
                      action_description, expected_screen)
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 DIRECT_PROMPT = """Bạn hiểu yêu cầu tiếng Việt thành đúng một hành động.
 Hỗ trợ open_app với value="Settings" để mở Cài đặt, stop để hủy,

@@ -1,1 +1,1 @@
-"""Vietnamese iPhone assistant. Device execution is not implemented yet."""
+"""Vietnamese voice assistant with bounded, verified WDA actions."""

@@ -23,7 +23,7 @@ def record_wav(
     except ImportError as exc:
         raise SpeechInputError(
             'Thiếu sounddevice. Cài bằng: '
-            'python -m pip install -e ".[windows,speech]"'
+            'python -m pip install -e .'
         ) from exc
 
     if not 1 <= max_seconds <= 60:

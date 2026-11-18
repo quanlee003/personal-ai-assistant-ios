@@ -1,10 +1,8 @@
 """WDA over a loopback go-ios userspace tunnel; no audio or cloud."""
 import base64
-import hashlib
 import http.client
 import ipaddress
 import json
-from pathlib import Path
 import socket
 import struct
 from urllib.request import urlopen
@@ -47,7 +45,6 @@ class WDABackend:
         if raw[:8] != b'\x89PNG\r\n\x1a\n':
             raise ValueError('Screenshot is not PNG')
         path.write_bytes(raw)
-        return hashlib.sha256(raw).hexdigest()
 
     def ready(self):
         return self.request('GET', '/status')['value'].get('ready') is True

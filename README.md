@@ -82,9 +82,8 @@ Microphone PC → kết thúc khi im lặng → Deepgram nhận dạng tiếng V
   → AI Gateway đánh giá ảnh sau → lưu kết quả → nghe lượt mới hoặc dừng
 ```
 
-WDA là bộ thực thi trực tiếp. Không phát “Tap N”, không dùng Apple Voice Control
-làm bộ thực thi và không tự chuyển sang TTS khi WDA lỗi. Luồng Voice Control cũ
-vẫn còn trong code để debug riêng.
+WDA là bộ thực thi duy nhất. Code Voice Control/TTS và các CLI cũ đã được loại
+bỏ; khi WDA lỗi, phiên dừng. Chế độ debug trong README dùng cùng backend direct.
 
 Câu không rõ: hiện câu hỏi trên terminal, nghe yêu cầu mới nếu còn lượt, không
 tái dùng mục tiêu cũ. Chưa có phản hồi bằng giọng nói; vẫn cần nhìn trạng thái
@@ -213,11 +212,12 @@ Phần dependency ứng dụng với Python 3.11+:
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[speech,intent]"
+.\.venv\Scripts\python.exe -m pip install -e .
 ```
 
-Lệnh này **chỉ cài ứng dụng Python**, chưa thiết lập WDA/USB/DDI. Direct không
-cần TTS; extra `windows` dành cho luồng TTS cũ. Xem [setup Windows đã kiểm chứng](docs/direct-windows.md)
+Lệnh này **chỉ cài ứng dụng Python**, chưa thiết lập WDA/USB/DDI. Dependency chính
+gồm sounddevice, python-dotenv, openai và pydantic; không còn extra/dependency TTS.
+Xem [setup Windows đã kiểm chứng](docs/direct-windows.md)
 để biết công cụ/phiên bản và các bước thiết bị. Trên máy hiện tại không cần cài lại.
 
 Tạo `.env` tại thư mục project bằng key của bạn; không đưa key thật vào Git:
@@ -281,7 +281,7 @@ Tính đến 18/11/2026:
   `steps_attempted=2`, `steps_acknowledged=2`, `error_code=null`; người dùng xác
   nhận hoạt động tốt. Đã kiểm chứng giọng nói → AI → launch/click → AI xác minh.
   Không suy ra hai lượt thuộc cùng một phiên vì bản ghi chưa có session ID.
-- 47 unit tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
+- Sau đợt dọn repo, 49 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
 - Chưa kiểm chứng app khác, máy/thiết bị khác hoặc phục hồi sau reboot đầy đủ.
 
 ```powershell
@@ -293,6 +293,7 @@ nhận dạng; `intent.py` hiểu yêu cầu; `direct.py` giới hạn thực th
 `wda.py` kết nối thiết bị; `verification.py` đánh giá ảnh.
 
 - [Thiết lập Windows, bằng chứng và nhật ký kỹ thuật](docs/direct-windows.md).
-- [Kiến trúc ban đầu](docs/architecture.md): bối cảnh lịch sử; trạng thái direct hiện tại theo README này.
+- [Kiến trúc hiện tại và ranh giới module](docs/architecture.md).
+- [Hướng dẫn phát triển và kiểm tra repo](docs/development.md).
 - Cảm hứng kiến trúc: [WhisperTest](https://github.com/iOSWhisperTest/whispertest).
   Project phát triển độc lập; tái sử dụng code về sau cần giữ giấy phép/thông báo tương ứng.
