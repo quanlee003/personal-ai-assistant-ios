@@ -18,5 +18,8 @@ dependencies = [
 [project.scripts]
 iphone-assistant = "iphone_assistant.direct_cli:main"
 
+[project.optional-dependencies]
+device = ["pymobiledevice3>=11.58,<12"]
+
 [tool.setuptools.packages.find]
 where = ["src"]

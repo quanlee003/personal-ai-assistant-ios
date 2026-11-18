@@ -8,6 +8,8 @@ import os
 from .control import RunCanceled, check_stop
 from .direct_cli import run_logged_turn
 from .wda import WDABackend
+from .device_catalog import DeviceCatalog
+from .phone_setup import open_screen_time
 
 
 @dataclass(frozen=True)
@@ -50,7 +52,7 @@ def check_readiness(stop_event=None):
 
 
 class DesktopController:
-    def __init__(self, *, preflight=check_readiness, runner=run_logged_turn):
+    def __init__(self, *, preflight=check_readiness, runner=run_logged_turn, catalog=None):
         self.events = Queue()
         self._preflight = preflight
         self._runner = runner
@@ -58,6 +60,7 @@ class DesktopController:
         self._busy = False
         self._stop = Event()
         self._worker = None
+        self.catalog = catalog or DeviceCatalog()
 
     @property
     def busy(self):
@@ -97,8 +100,32 @@ class DesktopController:
             self.emit('checking', 'Đang kiểm tra kết nối')
             state = self._preflight(self._stop)
             self.emit('readiness', state)
+            self.emit('catalog', self.catalog.refresh(self._stop))
             return 'checked'
         return self._launch(check)
+
+    def scan(self, force=True):
+        def work():
+            if force:
+                self.emit('catalog_scanning', None)
+            self.emit('catalog', self.catalog.refresh(self._stop, force=force))
+            return 'scanned'
+        return self._launch(work)
+
+    def open_phone_setup(self):
+        def work():
+            self.emit('checking', 'Đang mở Thời gian sử dụng trên iPhone')
+            try:
+                state = self.catalog.refresh(self._stop)
+                self.emit('catalog', state)
+                message = open_screen_time(self._stop, device_key=state.get('device_key'))
+            except RunCanceled:
+                raise
+            except Exception:
+                message = 'Chưa mở được mục này. Trên iPhone vào Cài đặt → Thời gian sử dụng → Hoạt động ứng dụng & web. Không tự thử lại.'
+            self.emit('setup_result', message)
+            return 'setup'
+        return self._launch(work)
 
     def start(self, max_turns=1):
         if not 1 <= max_turns <= 10:
