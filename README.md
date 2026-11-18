@@ -13,6 +13,26 @@ dùng PC kết nối iPhone, chưa phải ứng dụng độc lập cài từ Ap
 
 ### Mở cửa sổ Windows
 
+**Quét máy trong app:** mở **Ứng dụng & thiết lập** ở cột trái. Khi app mở hoặc
+phát hiện iPhone USB mới, app tự đọc danh sách ứng dụng. Khi đang rảnh, app kiểm
+tra kết nối khoảng 12 giây/lần; không quét chen vào phiên giọng nói. Dùng **Quét
+lại** sau khi cài/gỡ ứng dụng. Có thể tìm theo tên hoặc bundle ID. Mục System gồm
+cả thành phần nội bộ, không đồng nghĩa tất cả đều có icon trên màn hình chính.
+
+Tab **Điều kiện & quyền** chỉ rõ USB/Tin cậy cho quét, WDA cho điều khiển và
+Thời gian sử dụng tùy chọn. Nút **Mở Thời gian sử dụng trên iPhone** điều hướng
+bằng WDA khi kết nối sẵn sàng; không tự bật tính năng hay bấm đồng ý cấp quyền.
+Nếu không mở được, app hiển thị đường dẫn để người dùng vào thủ công.
+
+Danh mục lưu riêng theo mã thiết bị băm tại `runtime/device-profiles/`, chỉ ở
+máy local. App luôn đọc lại khi kết nối lại, không hiển thị dữ liệu máy cũ như
+dữ liệu máy mới. Bản này chưa đọc báo cáo sử dụng, chưa gửi danh mục lên AI và
+chưa mở rộng whitelist lệnh giọng nói theo danh mục.
+
+Trên máy đã thiết lập, app tự dùng môi trường thiết bị hiện có. Khi cài mới,
+dependency cho quét thuộc extra `device` (`pip install -e ".[device]"`). Không
+cần người dùng chạy một script quét riêng.
+
 Nhấp đúp **`start-desktop.cmd`** trong thư mục project. Hoặc chạy:
 
 ```powershell
@@ -54,10 +74,10 @@ Set-Location C:\personal-ai-assistant-ios
 ### Kiểm tra kết nối
 
 ```powershell
-.\.venv\Scripts\python.exe scripts/wda_smoke.py
+.\.venv\Scripts\python.exe -c "from iphone_assistant.wda import WDABackend; print(WDABackend().ready())"
 ```
 
-Thấy `"wda_ready": true` thì có thể bắt đầu. Lệnh này chỉ đọc trạng thái, không
+Thấy `True` thì có thể bắt đầu. Lệnh này chỉ đọc trạng thái, không
 mở app hoặc chụp ảnh. Nếu lỗi, xem mục **Khôi phục kết nối** bên dưới.
 
 ### Bắt đầu nói, không cần xác nhận
@@ -173,36 +193,11 @@ Trong 8 giây không thu đủ tiếng vượt ngưỡng hoặc bản thu đạt
 và không gửi bản thu đó. Vì vậy, im lặng ở lượt hai có thể làm phiên kết thúc
 bằng lỗi dù lượt đầu thành công.
 
-## 5. Khôi phục kết nối
+## 5. Kết nối WDA
 
-**WDA đã ready thì bỏ qua mục này.** Những lệnh sau dùng setup có sẵn trên máy
-hiện tại, không phải trình cài cho máy mới. Cần USB/pairing, Developer Mode,
-runner đã ký và DDI phù hợp. Chuỗi khôi phục sau reboot chưa được kiểm thử đầy đủ.
-
-Chạy từng lệnh, xem kết quả rồi mới tiếp tục:
-
-```powershell
-# 1. Khởi động tunnel nếu chưa có
-.\artifacts\direct-setup\venv-ddi\Scripts\python.exe scripts/start_direct.py tunnel
-
-# 2. Kiểm tra DDI/dịch vụ XCTest
-.\artifacts\direct-setup\venv-ddi\Scripts\python.exe scripts/ddi_userspace.py
-
-# 3. Khi DDI và dịch vụ XCTest đã sẵn sàng, khởi động runner
-.\artifacts\direct-setup\venv-ddi\Scripts\python.exe scripts/start_direct.py wda
-
-# 4. Chỉ dùng trợ lý khi ready=true
-.\.venv\Scripts\python.exe scripts/wda_smoke.py
-```
-
-“Started process” chỉ xác nhận tạo tiến trình, chưa xác nhận sẵn sàng. Nếu báo
-tunnel/PID còn chạy, không khởi động chồng hoặc tự xóa PID; kiểm tra tiến trình
-và log ở `artifacts/direct-setup/`.
-
-Nếu thiếu DDI, xem [hướng dẫn runtime](docs/direct-windows.md#runtime).
-`ddi_userspace.py --mount` có thể gửi dữ liệu personalization tới Apple và mount
-DDI, không phải lệnh chỉ đọc. Profile ký WDA hết hạn thì cần ký/cài lại bằng
-Sideloadly và kiểm tra Trust trên iPhone; chưa có gia hạn tự động.
+Các script thiết lập WDA đã được xóa khỏi repository. App hiện kiểm tra WDA
+đang chạy; chưa tự cài, ký hoặc khởi động lại WDA. Quét danh sách app qua USB
+vẫn hoạt động độc lập với WDA. Các script setup cũ không còn thuộc bản này.
 
 ## 6. Debug khi cần tìm lỗi
 
@@ -241,8 +236,8 @@ python -m venv .venv
 
 Lệnh này **chỉ cài ứng dụng Python**, chưa thiết lập WDA/USB/DDI. Dependency chính
 gồm sounddevice, python-dotenv, openai và pydantic; không còn extra/dependency TTS.
-Xem [setup Windows đã kiểm chứng](docs/direct-windows.md)
-để biết công cụ/phiên bản và các bước thiết bị. Trên máy hiện tại không cần cài lại.
+Phần cài WDA và công cụ thiết bị hiện vẫn cần chuẩn bị riêng. Trên máy đã thiết
+lập không cần cài lại mỗi lần dùng.
 
 Tạo `.env` tại thư mục project bằng key của bạn; không đưa key thật vào Git:
 
@@ -280,9 +275,9 @@ Các mục sau là hướng phát triển, **chưa phải tính năng hiện có
 | --- | --- |
 | Tự kiểm tra/start tunnel và WDA | Tự kiểm tra kết nối, khởi động thành phần cần thiết, báo lỗi dễ hiểu. |
 | Ký runner, Trust, DDI qua nhiều công cụ | Hướng dẫn thiết lập lần đầu, theo dõi provisioning và khôi phục kết nối. Khả năng phân phối rộng còn phải kiểm chứng riêng. |
-| Chạy câu lệnh Python | Giao diện Bắt đầu/Dừng, trạng thái Nghe/Đang xử lý/Hoàn tất. |
+| GUI đã có Bắt đầu/Dừng và quét app | Bổ sung bộ cài và thiết lập lần đầu. |
 | Ngưỡng âm lượng cố định | Chọn microphone, đo thử âm thanh, phát hiện hết câu ổn định trong tiếng ồn. |
-| Chỉ phản hồi terminal | Phản hồi dễ hiểu, hỏi lại bằng giọng nói; tránh thu lại tiếng trợ lý. |
+| Kết quả hiển thị trong GUI | Bổ sung phản hồi bằng giọng nói; tránh thu lại tiếng trợ lý. |
 | Người dùng tự chuẩn bị key | Thiết kế đăng nhập, lưu secret, quota và chi phí rõ ràng. |
 | Mở Cài đặt/trang Pin qua quy trình cố định | Mở rộng từng tác vụ đã kiểm chứng: nhận diện phần tử, thực thi, xác minh. |
 | Ảnh/JSON tích lũy trong thư mục | Lịch sử dễ đọc, thời hạn lưu/xóa và quyền chia sẻ dữ liệu minh bạch. |
@@ -305,7 +300,7 @@ Tính đến 18/11/2026:
   `steps_attempted=2`, `steps_acknowledged=2`, `error_code=null`; người dùng xác
   nhận hoạt động tốt. Đã kiểm chứng giọng nói → AI → launch/click → AI xác minh.
   Không suy ra hai lượt thuộc cùng một phiên vì bản ghi chưa có session ID.
-- Sau đợt dọn repo, 49 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
+- Sau đợt dọn repo, 66 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
 - Chưa kiểm chứng app khác, máy/thiết bị khác hoặc phục hồi sau reboot đầy đủ.
 
 ```powershell
@@ -316,7 +311,6 @@ Module chính: `direct_cli.py` điều phối; `endpoint.py` kết thúc thu; `s
 nhận dạng; `intent.py` hiểu yêu cầu; `direct.py` giới hạn thực thi và trả kết quả;
 `wda.py` kết nối thiết bị; `verification.py` đánh giá ảnh.
 
-- [Thiết lập Windows, bằng chứng và nhật ký kỹ thuật](docs/direct-windows.md).
 - [Kiến trúc hiện tại và ranh giới module](docs/architecture.md).
 - [Hướng dẫn phát triển và kiểm tra repo](docs/development.md).
 - Cảm hứng kiến trúc: [WhisperTest](https://github.com/iOSWhisperTest/whispertest).

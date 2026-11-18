@@ -69,9 +69,14 @@ và flash cho vision theo `.env`. Không có cơ chế phân phối key cho ngư
 
 ## Công cụ vận hành
 
-`scripts/` chỉ giữ bốn công cụ cần cho setup/khôi phục/chẩn đoán:
-`prepare_wda_ipa.py`, `start_direct.py`, `ddi_userspace.py`, `wda_smoke.py`.
-Không import các script thiết lập vào vòng lặp tác vụ. Xem [setup Windows](direct-windows.md).
+Các script setup cũ đã được xóa khỏi repo. App kiểm tra WDA có sẵn, chưa tự thiết lập runtime.
+
+Quét nằm trong app chính: `device_catalog` gọi worker nội bộ `device_probe` bằng
+môi trường thiết bị để tách dependency USB khỏi môi trường voice. Worker chỉ
+đọc; output có cấu trúc, không xuất serial thô. Catalog được lưu theo hash thiết
+bị. Controller dùng chung khóa worker cho voice/quét/setup, không thao tác chồng.
+`phone_setup` chỉ điều hướng hữu hạn đến Screen Time khi người dùng bấm nút,
+đối chiếu identity với tunnel, không bật quyền. Xem [quyền iOS](ios-permissions.md).
 
 Giao diện PC tái sử dụng ActionResult và sự kiện có cấu trúc, không phân tích
 dòng print. Kiểm tra ban đầu chỉ đọc WDA và cấu hình microphone/key, chưa thu âm

@@ -12,7 +12,7 @@ python -m venv .venv
 Dependency runtime nằm trong `pyproject.toml`. Không có extra `windows`, `speech`
 hay `intent` nữa; các thư viện cần thiết cho workflow direct là dependency chính.
 Sau khi thay entry point, chạy lại `pip install -e .` để cập nhật executable.
-Môi trường thiết bị/go-ios/DDI tách riêng, xem [setup Windows](direct-windows.md).
+Quét USB dùng extra `device` hoặc môi trường thiết bị sẵn có. WDA/go-ios/DDI vẫn cần chuẩn bị riêng.
 
 ## Entry point
 
@@ -34,7 +34,7 @@ này trong test hoặc smoke check thông thường. Cách dùng tại [README](
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
-.\.venv\Scripts\python.exe -m compileall -q src scripts tests
+.\.venv\Scripts\python.exe -m compileall -q src tests
 git diff --check
 ```
 
@@ -46,7 +46,7 @@ guard phần tử, xác minh và lưu bản ghi.
 Kiểm tra WDA chỉ đọc, khi thiết bị đã kết nối:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts/wda_smoke.py
+.\.venv\Scripts\python.exe -c "from iphone_assistant.wda import WDABackend; print(WDABackend().ready())"
 ```
 
 Test trên iPhone cần chủ động chạy CLI và thống nhất thao tác. Không tự thêm
