@@ -49,6 +49,33 @@ chưa chạy end-to-end**, không gửi thêm ảnh hay mở Cài đặt lần n
 
 ## Khởi động lại runtime đã thiết lập
 
+### Phiên direct nhiều lượt và bản ghi kết quả
+
+```powershell
+.\.venv\Scripts\python.exe -m iphone_assistant.direct_cli --session --listen --ai --execute --verify --max-turns 10
+```
+
+Bỏ `--listen` để gõ từng yêu cầu. Mỗi lượt nhận yêu cầu mới và giữ các bước
+xác nhận hiện có; `/quit` ở đầu lượt hoặc Ctrl+C để thoát. Hủy một lượt cũng
+đóng phiên. Lỗi, kết quả không khớp hoặc chưa rõ sẽ dừng phiên, không tự thử lại.
+Chỉ mở Cài đặt, chưa hỗ trợ thao tác khác; Enter vẫn kết thúc thu âm.
+
+Cả CLI một lượt và phiên nhiều lượt lưu `runtime/direct-results/<id>/result.json`,
+gồm trạng thái, thời gian UTC, cờ attempted/acknowledged và đường dẫn ảnh nếu có.
+Không lưu riêng audio/transcript; thông báo kết quả có thể chứa nội dung AI trả về.
+Bản ghi `incomplete` được tạo trước khi xử lý; nếu bị tắt đột ngột thì chưa thể
+kết luận thao tác đã xảy ra hay chưa. Lỗi ghi kết quả cuối đóng phiên, không gửi lại.
+Thư mục runtime và captures đã được Git ignore. Không ghi lại kết quả AI của các
+lượt cũ chỉ từ ảnh vì không có bằng chứng phản hồi terminal tương ứng.
+
+Đã chạy 20 unit tests đạt. Lượt người dùng chạy ngày 18/11/2026 đã lưu bản ghi
+với `action_attempted=true`, `action_acknowledged=true` và đường dẫn ảnh trước/sau.
+Người dùng bỏ qua đánh giá ảnh nên kết quả là `verification_uncertain`; phiên
+dừng đúng thiết kế. Chưa chứng minh nhiều lượt liên tiếp hoặc AI xác minh thành công
+trong phiên mới. WDA status kiểm tra lại vẫn `ready=true`.
+
+### Runtime
+
 Các lệnh này không cần chạy khi WDA đang ready. Nếu mất USB, dừng thao tác và
 kiểm tra lại trạng thái; không tự lặp yêu cầu trước. Sau reboot, mở khóa iPhone,
 kiểm tra profile còn hạn và kết nối USB. Dùng Python môi trường DDI:

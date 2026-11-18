@@ -17,6 +17,8 @@ Windows setup, evidence, limitations and commands: [Direct control on Windows](d
 
 See docs/architecture.md.
 
+Direct sessions: run `python -m iphone_assistant.direct_cli --session --listen --ai --execute --verify` in the project environment. Each turn requires fresh input and confirmation; `/quit` exits at the turn prompt. Local results are saved under `runtime/direct-results/` (Git-ignored). Sessions stop on cancellation, errors or uncertain verification and default to at most 10 turns.
+
 ## Inspiration
 
 WhisperTest: https://github.com/iOSWhisperTest/whispertest
