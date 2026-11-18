@@ -3,6 +3,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from .control import RunCanceled, check_stop
 
 from .commands import normalize, UnsupportedCommand
 from .direct import (ActionResult, execute, validate_command, parse_direct_command,
@@ -26,23 +27,33 @@ message là câu hỏi hoặc giải thích ngắn bằng tiếng Việt.
 """
 
 
-def run_turn(args, request=None):
+def run_turn(args, request=None, *, stop_event=None, on_event=None):
     """Return one fresh result; never parse output or retain a previous target."""
     automatic = getattr(args, 'auto', False)
     stage = 'request'
+    def event(phase, message):
+        if on_event:
+            on_event(phase, message)
     try:
+        check_stop(stop_event)
         if args.listen:
             stage = 'audio_capture'
+            event('listening', 'Nói yêu cầu, rồi ngừng khoảng 1,2 giây')
             from .speech import record_wav, transcribe_vietnamese
             if automatic:
                 from .endpoint import record_until_silence
+                options = {'stop_event': stop_event} if stop_event is not None else {}
                 audio = record_until_silence(threshold=args.voice_threshold,
-                                             silence_seconds=args.silence_seconds)
+                                             silence_seconds=args.silence_seconds, **options)
             else:
                 print('Audio sẽ gửi Deepgram. Enter kết thúc thu; Ctrl+C để dừng.')
                 audio = record_wav()
             stage = 'transcription'
+            check_stop(stop_event)
+            event('transcribing', 'Đang nhận dạng lời nói')
             request = transcribe_vietnamese(audio)
+            check_stop(stop_event)
+            event('transcript', request)
             print('Nhận dạng:', request)
             if not automatic:
                 correction = input(
@@ -57,12 +68,15 @@ def run_turn(args, request=None):
             return ActionResult('canceled', 'Đã dừng phiên.')
         if args.ai:
             stage = 'intent'
+            check_stop(stop_event)
+            event('understanding', 'Đang hiểu yêu cầu')
             from .intent import understand_intent
             print('Yêu cầu sẽ gửi AI Gateway hiện có để hiểu ý định.')
             if not automatic and input('Nhập y để gửi; Enter để hủy: ').strip().casefold() != 'y':
                 result = ActionResult('canceled', 'Đã hủy trước khi gửi AI.')
                 return result
             intent = understand_intent(request, system_prompt=DIRECT_PROMPT)
+            check_stop(stop_event)
             if intent.decision != 'action':
                 result = ActionResult('needs_clarification', intent.message)
                 return result
@@ -82,6 +96,8 @@ def run_turn(args, request=None):
             return ActionResult('canceled', 'Đã hủy.')
 
         def verify(path):
+            check_stop(stop_event)
+            event('verifying', 'Đang kiểm tra màn hình sau thao tác')
             print('Ảnh sau sẽ gửi AI Gateway/model hiện có để đánh giá màn hình mong đợi.')
             if not automatic and input('Nhập y để gửi ảnh; Enter để bỏ qua: ').strip().casefold() != 'y':
                 return 'clarify', 'Đã bỏ qua đánh giá ảnh sau thao tác.'
@@ -91,11 +107,14 @@ def run_turn(args, request=None):
 
         from .wda import WDABackend
         stage = 'device_connect'
+        check_stop(stop_event)
         backend = WDABackend()
+        backend.stop_event = stop_event
         result = execute(command, backend, PROJECT_ROOT / 'captures', confirmed=True,
-                         dry_run=False, verify=verify if args.verify else None)
+                         dry_run=False, verify=verify if args.verify else None,
+                         stop_event=stop_event, on_event=on_event)
         return result
-    except (KeyboardInterrupt, EOFError):
+    except (KeyboardInterrupt, EOFError, RunCanceled):
         return ActionResult('canceled', 'Đã dừng CLI. Không tự thử lại.')
     except Exception as exc:
         code = getattr(exc, 'code', None) or stage + '_error'
@@ -111,7 +130,7 @@ def run_turn(args, request=None):
                             ' Đã dừng, không tự thử lại.', error_code=code)
 
 
-def run_logged_turn(args, request=None):
+def run_logged_turn(args, request=None, *, stop_event=None, on_event=None):
     from datetime import datetime, timezone
     from uuid import uuid4
 
@@ -130,7 +149,12 @@ def run_logged_turn(args, request=None):
     # explicitly incomplete record, never an invented successful outcome.
     save({'status': 'incomplete', 'started_at': started, 'mode': mode,
           'message': 'Lượt chưa kết thúc; chưa biết có thao tác hay không. Không tự chạy lại.'})
-    result = run_turn(args, request)
+    options = {}
+    if stop_event is not None:
+        options['stop_event'] = stop_event
+    if on_event is not None:
+        options['on_event'] = on_event
+    result = run_turn(args, request, **options)
     print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
     try:
         save({**result.to_dict(), 'started_at': started, 'mode': mode,
@@ -139,6 +163,8 @@ def run_logged_turn(args, request=None):
         print('Không lưu được kết quả cuối. Đóng phiên; không tự thực hiện lại.')
         raise SystemExit(1)
     print('Kết quả local:', path)
+    if on_event:
+        on_event('record', str(path))
     return result
 
 

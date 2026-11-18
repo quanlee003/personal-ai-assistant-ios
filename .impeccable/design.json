@@ -1,0 +1,96 @@
+{
+    "schemaVersion":  2,
+    "generatedAt":  "2026-11-18T12:46:06.3036557+11:00",
+    "title":  "Design System: iPhone Assistant Desktop",
+    "extensions":  {
+                       "colorMeta":  {
+                                         "primary":  {
+                                                         "role":  "primary",
+                                                         "displayName":  "Restrained Teal"
+                                                     },
+                                         "canvas":  {
+                                                        "role":  "neutral",
+                                                        "displayName":  "Cool Off-white"
+                                                    },
+                                         "surface":  {
+                                                         "role":  "neutral",
+                                                         "displayName":  "White Work Surface"
+                                                     },
+                                         "ink":  {
+                                                     "role":  "neutral",
+                                                     "displayName":  "Dark Ink"
+                                                 },
+                                         "muted":  {
+                                                       "role":  "neutral",
+                                                       "displayName":  "Supporting Slate"
+                                                   },
+                                         "warning":  {
+                                                         "displayName":  "Status Amber"
+                                                     },
+                                         "error":  {
+                                                       "displayName":  "Session Error Red"
+                                                   }
+                                     },
+                       "typographyMeta":  {
+                                              "display":  {
+                                                              "purpose":  "Application heading; native Tk point sizing."
+                                                          },
+                                              "headline":  {
+                                                               "purpose":  "Current session phase."
+                                                           },
+                                              "title":  {
+                                                            "purpose":  "Panel headings."
+                                                        },
+                                              "result-title":  {
+                                                                   "purpose":  "Latest outcome heading."
+                                                               },
+                                              "body":  {
+                                                           "purpose":  "Explanations and scrollable result text."
+                                                       },
+                                              "action":  {
+                                                             "purpose":  "Primary Start action."
+                                                         },
+                                              "label":  {
+                                                            "purpose":  "Auxiliary text and default ttk controls."
+                                                        }
+                                          },
+                       "shadows":  [
+
+                                   ],
+                       "motion":  [
+
+                                  ],
+                       "breakpoints":  [
+
+                                       ]
+                   },
+    "components":  [
+
+                   ],
+    "narrative":  {
+                      "northStar":  "A Quiet Windows Control Desk",
+                      "overview":  "A restrained daylight desktop workspace: off-white surroundings, white work areas, dark ink and a single teal action accent. Vietnamese text carries state and guidance. Native Python/Tkinter with the clam ttk theme owns control rendering. No HTML/CSS component previews or synthetic tonal ramps are supplied: these would invent a web representation that the native source does not implement. DESIGN.md frontmatter owns extracted primitives and component tokens.",
+                      "keyCharacteristics":  [
+                                                 "One Segoe UI family with a clear size and weight hierarchy.",
+                                                 "Flat tonal separation and generous panel interiors.",
+                                                 "Text-labelled states, visible cancellation and scrollable results."
+                                             ],
+                      "rules":  [
+                                    {
+                                        "name":  "The Text Carries State Rule",
+                                        "body":  "Pair state color with readable status text; color alone never establishes readiness or success.",
+                                        "section":  "colors"
+                                    }
+                                ],
+                      "dos":  [
+                                  "Do preserve the light palette, Segoe UI hierarchy and explicit state labels.",
+                                  "Do let explanatory content wrap and long result content scroll.",
+                                  "Do use disabled controls to reflect the controller\u0027s real availability."
+                              ],
+                      "donts":  [
+                                    "Don\u0027t turn pending or uncertain outcomes into visual success.",
+                                    "Don\u0027t add decorative imagery or animation to the established control-desk world.",
+                                    "Don\u0027t infer web styling, mobile behavior, custom radii or custom focus treatments from native ttk defaults."
+                                ]
+                  }
+}

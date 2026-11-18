@@ -11,6 +11,30 @@ dùng PC kết nối iPhone, chưa phải ứng dụng độc lập cài từ Ap
 
 ## 1. Dùng ngay trên máy đã thiết lập
 
+### Mở cửa sổ Windows
+
+Nhấp đúp **`start-desktop.cmd`** trong thư mục project. Hoặc chạy:
+
+```powershell
+.\.venv\Scripts\pythonw.exe -m iphone_assistant.desktop
+```
+
+1. Kết nối USB, mở khóa iPhone và khởi chạy WDA như phần thiết lập bên dưới.
+2. Cửa sổ tự kiểm tra iPhone, microphone mặc định và cấu hình dịch vụ. Việc kiểm
+   tra chưa thu âm; “Đã cấu hình” chỉ xác nhận có key, chưa xác thực key qua mạng.
+3. Khi sẵn sàng, chọn số lượt (mặc định 1), bấm **Bắt đầu**. Đợi **Đang nghe**
+   rồi nói “mở Cài đặt” hoặc “mở phần Pin trong Cài đặt”. Không cần xác nhận lại.
+4. Theo dõi nhận dạng, hiểu câu, thao tác và xác minh. Kết quả hiện bên phải;
+   **Mở kết quả local** mở thư mục bản ghi JSON của lượt gần nhất.
+5. Bấm **Dừng** để chặn bước tiếp theo. Lệnh đã gửi không thể thu hồi; cửa sổ
+   chờ yêu cầu đang chạy trả về hoặc hết timeout, rồi đóng microphone/phiên.
+   Đóng cửa sổ khi đang chạy cũng chờ dừng an toàn. Không mở phiên khác để thử lại
+   trong lúc đang chờ. Nếu chưa xác định kết quả, kiểm tra iPhone trước khi chạy lại.
+
+Audio gửi Deepgram; câu và ảnh sau thao tác gửi AI Gateway hiện có. Giao diện
+không tự cài, ký lại hay khởi động WDA. Chưa có installer; cần môi trường `.venv`
+đã cài project. Luồng terminal dưới đây vẫn dùng được.
+
 Các lệnh dưới đây chạy trong **PowerShell**. Máy hiện tại đã có công cụ và cấu
 hình; không cần cài lại mỗi lần. Lệnh gọi thẳng Python của project nên không cần
 kích hoạt virtualenv.

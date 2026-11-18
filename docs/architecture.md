@@ -6,6 +6,8 @@ Mỗi lượt nhận yêu cầu mới; không có planner tổng quát, TTS hay 
 ## Luồng chạy
 
 ```text
+desktop (Tk main thread) → desktop_controller (một worker, Queue, stop Event)
+                            └─ direct_cli.run_logged_turn
 direct_cli (auto hoặc debug)
   ├─ endpoint → speech: thu âm/Deepgram (khi dùng microphone)
   ├─ intent → commands: AI Gateway tạo lệnh (hoặc parser local)
@@ -16,6 +18,9 @@ direct_cli (auto hoặc debug)
 
 | Module | Trách nhiệm |
 | --- | --- |
+| `desktop.py` | Cửa sổ Tkinter, trạng thái, nút Bắt đầu/Dừng và kết quả; không xử lý nền trên Tk thread. |
+| `desktop_controller.py` | Kiểm tra điều kiện, một worker mỗi cửa sổ, giới hạn 1–10 lượt và sự kiện có cấu trúc. |
+| `control.py` | Dừng hợp tác trước bước tiếp theo; không hủy cưỡng bức lệnh đang chạy. |
 | `direct_cli.py` | Input/output, cấu hình `.env`, auto/debug, giới hạn lượt, JSON local. |
 | `commands.py` | Kiểu Command, chuẩn hóa tiếng Việt, parser mở app/dừng. |
 | `direct.py` | Parser Pin, whitelist tác vụ, ActionResult, quy trình tối đa hai bước. |
@@ -53,7 +58,10 @@ Mỗi lượt có JSON riêng ở `runtime/direct-results/`. Bản ghi incomplet
 trước xử lý; kết quả cuối thay thế qua file tạm. Ảnh ở `captures/`; không lưu
 riêng audio/transcript, nhưng message AI có thể chứa nội dung màn hình/lời nói.
 Microphone đóng trong lúc xử lý cloud/device. Nói dừng chỉ có tác dụng khi đang
-nghe; Ctrl+C dùng để ngắt ngoài giai đoạn thu. Mỗi lần chạy mặc định tối đa 10 lượt.
+nghe; Ctrl+C dùng để ngắt CLI ngoài giai đoạn thu. CLI mặc định tối đa 10 lượt;
+giao diện mặc định 1 lượt. Nút Dừng và đóng cửa sổ chờ request đang chạy kết thúc,
+không khởi chạy lại. Chỉ mở một cửa sổ để dùng với iPhone; khóa worker có phạm vi
+mỗi cửa sổ, chưa phải khóa liên tiến trình.
 
 Cloud: Deepgram nova-3 tiếng Việt; AI Gateway dùng Gemini flash-lite cho intent
 và flash cho vision theo `.env`. Không có cơ chế phân phối key cho người dùng cuối.
@@ -65,5 +73,6 @@ và flash cho vision theo `.env`. Không có cơ chế phân phối key cho ngư
 `prepare_wda_ipa.py`, `start_direct.py`, `ddi_userspace.py`, `wda_smoke.py`.
 Không import các script thiết lập vào vòng lặp tác vụ. Xem [setup Windows](direct-windows.md).
 
-Giao diện PC chưa triển khai. Khi bổ sung, cần tái sử dụng kết quả có cấu trúc,
-không phân tích dòng print để điều khiển logic. Không khôi phục các CLI TTS cũ.
+Giao diện PC tái sử dụng ActionResult và sự kiện có cấu trúc, không phân tích
+dòng print. Kiểm tra ban đầu chỉ đọc WDA và cấu hình microphone/key, chưa thu âm
+hoặc xác thực key qua mạng. Không khôi phục các CLI TTS cũ.

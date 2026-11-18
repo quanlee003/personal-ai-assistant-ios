@@ -8,6 +8,7 @@ import struct
 from urllib.request import urlopen
 from urllib.parse import quote
 import xml.etree.ElementTree as ET
+from .control import check_stop
 
 
 class TargetChangedError(RuntimeError):
@@ -23,6 +24,7 @@ class WDABackend:
         self.tunnel = tunnels[0]
 
     def request(self, method, path, payload=None):
+        check_stop(getattr(self, 'stop_event', None))
         t = self.tunnel
         body = json.dumps(payload).encode() if payload is not None else b''
         # One attempt only, including POST timeout. Never replay an uncertain action.
@@ -31,6 +33,7 @@ class WDABackend:
             headers = (f'{method} {path} HTTP/1.1\r\nHost: localhost\r\n'
                        f'Content-Type: application/json\r\nContent-Length: {len(body)}\r\n'
                        'Connection: close\r\n\r\n').encode()
+            check_stop(getattr(self, 'stop_event', None))
             sock.sendall(headers + body)
             response = http.client.HTTPResponse(sock)
             response.begin()

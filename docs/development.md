@@ -55,6 +55,13 @@ thế kiểm thử tương thích thực tế với dịch vụ/thiết bị.
 
 ## Quy tắc giữ repo gọn
 
+Giao diện Windows: `desktop.py` chỉ cập nhật Tk trên main thread;
+`desktop_controller.py` điều phối một worker, phát sự kiện qua Queue và gọi
+`run_logged_turn` dùng chung với CLI. `control.py` cung cấp tín hiệu dừng hợp tác
+cho thu âm, cloud và WDA. Không hủy cưỡng bức request đang chạy hoặc retry thao tác.
+Test desktop dùng backend giả để kiểm tra khóa phiên, dừng và lỗi lưu kết quả;
+không mở microphone hay thao tác iPhone.
+
 - Mỗi module phải thuộc workflow chạy, test hoặc công cụ vận hành có mô tả.
 - Không giữ bản sao CLI hoặc fallback cũ “để sau”; Git đã có lịch sử.
 - Không thêm action vào schema nếu backend chưa hỗ trợ và chưa được kiểm chứng.

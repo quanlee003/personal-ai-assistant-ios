@@ -7,6 +7,7 @@ import threading
 import wave
 
 from .speech import SpeechInputError
+from .control import check_stop
 
 
 @dataclass
@@ -36,9 +37,10 @@ class SilenceEndpoint:
         return None
 
 
-def record_until_silence(*, threshold=500, silence_seconds=1.2) -> bytes:
+def record_until_silence(*, threshold=500, silence_seconds=1.2, stop_event=None) -> bytes:
     import sounddevice as sd
 
+    check_stop(stop_event)
     if not 1 <= threshold <= 32767 or not .5 <= silence_seconds <= 3:
         raise ValueError('Invalid endpoint settings')
     rate = int(sd.query_devices(None, 'input')['default_samplerate'])
@@ -76,8 +78,10 @@ def record_until_silence(*, threshold=500, silence_seconds=1.2) -> bytes:
         import time
         deadline = time.monotonic() + endpoint.max_seconds + 2
         while not done.wait(.05):
+            check_stop(stop_event)
             if time.monotonic() >= deadline:
                 raise SpeechInputError('Microphone timeout; không gửi audio.', code='audio_timeout')
+    check_stop(stop_event)
     if outcome != ['complete']:
         reason = {'no_speech': 'Không nghe rõ lời nói trong 8 giây.',
                   'too_long': 'Câu nói chạm giới hạn 20 giây.',

@@ -5,6 +5,7 @@ from typing import Callable, Literal, Protocol
 from uuid import uuid4
 
 from .commands import Command, normalize, parse_command
+from .control import RunCanceled, check_stop
 
 BATTERY_TARGET = 'settings.battery'
 
@@ -73,7 +74,8 @@ def validate_command(command: Command | None) -> ActionResult | None:
 
 def execute(command: Command | None, backend: DirectBackend, output_dir: Path, *,
             confirmed: bool = False, dry_run: bool = True,
-            verify: Callable[[Path], tuple[str, str]] | None = None) -> ActionResult:
+            verify: Callable[[Path], tuple[str, str]] | None = None,
+            stop_event=None, on_event=None) -> ActionResult:
     """Fresh bounded workflow: Settings launch, optionally one Battery click; no retries."""
     invalid = validate_command(command)
     if invalid:
@@ -86,17 +88,25 @@ def execute(command: Command | None, backend: DirectBackend, output_dir: Path, *
     attempted = acknowledged = False
     steps_attempted = steps_acknowledged = 0
     try:
+        check_stop(stop_event)
         if not backend.ready():
             return ActionResult('error', 'WDA chưa sẵn sàng; không dùng TTS thay thế.')
         folder = Path(output_dir) / ('direct-' + uuid4().hex[:8])
         folder.mkdir(parents=True)
         before = folder / 'before.png'
+        check_stop(stop_event)
+        if on_event:
+            on_event('observing', 'Đang chụp màn hình trước thao tác')
         backend.screenshot(before)
+        check_stop(stop_event)
+        if on_event:
+            on_event('executing', action_description(command))
         attempted = True
         steps_attempted = 1
         backend.open_settings()
         acknowledged = True
         steps_acknowledged = 1
+        check_stop(stop_event)
         if is_battery(command) and not backend.battery_page_visible():
             target = backend.find_battery()
             if target is None:
@@ -105,10 +115,12 @@ def execute(command: Command | None, backend: DirectBackend, output_dir: Path, *
                 return ActionResult('target_not_found', 'Đã mở Cài đặt nhưng không thấy đúng một mục Pin hợp lệ; không chạm.',
                                     True, True, str(before), str(after), 1, 1, 'battery_target_missing')
             backend.screenshot(folder / 'before-click.png')
+            check_stop(stop_event)
             steps_attempted = 2
             backend.click_battery(target)
             steps_acknowledged = 2
         after = folder / 'after.png'
+        check_stop(stop_event)
         backend.screenshot(after)
         if is_battery(command) and not backend.battery_page_visible():
             return ActionResult('verification_uncertain', 'Chưa xác nhận được tiêu đề trang Pin; dừng, không chạm lại.',
@@ -123,7 +135,7 @@ def execute(command: Command | None, backend: DirectBackend, output_dir: Path, *
         return ActionResult(status, message, True, True, str(before), str(after), steps_attempted, steps_acknowledged)
     except (Exception, KeyboardInterrupt) as exc:
         return ActionResult(
-            'verification_uncertain' if attempted else ('canceled' if isinstance(exc, KeyboardInterrupt) else 'error'),
+            'verification_uncertain' if attempted else ('canceled' if isinstance(exc, (KeyboardInterrupt, RunCanceled)) else 'error'),
             f'{type(exc).__name__}: đã dừng; không tự gửi lại hoặc chuyển sang TTS.',
             attempted, acknowledged,
             str(before) if before and before.exists() else None,
