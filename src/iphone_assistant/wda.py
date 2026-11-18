@@ -8,6 +8,12 @@ from pathlib import Path
 import socket
 import struct
 from urllib.request import urlopen
+from urllib.parse import quote
+import xml.etree.ElementTree as ET
+
+
+class TargetChangedError(RuntimeError):
+    code = 'battery_target_changed'
 
 
 class WDABackend:
@@ -47,5 +53,51 @@ class WDABackend:
         return self.request('GET', '/status')['value'].get('ready') is True
 
     def open_settings(self):
-        self.request('POST', '/session', {'capabilities': {'alwaysMatch': {
+        self.session_id = None
+        self._battery_element = None
+        result = self.request('POST', '/session', {'capabilities': {'alwaysMatch': {
             'bundleId': 'com.apple.Preferences', 'shouldTerminateApp': False}}})
+        self.session_id = result.get('sessionId') or result.get('value', {}).get('sessionId')
+
+    def session_request(self, method, path, payload=None):
+        if not self.session_id:
+            raise RuntimeError('No fresh WDA session')
+        return self.request(method, '/session/' + quote(self.session_id, safe='') + path, payload)
+
+    def settings_foreground(self):
+        return self.session_request('GET', '/wda/activeAppInfo')['value'].get('bundleId') == 'com.apple.Preferences'
+
+    def battery_page_visible(self):
+        if not self.settings_foreground():
+            return False
+        root = ET.fromstring(self.session_request('GET', '/source')['value'])
+        bars = [e for e in root.iter() if e.tag == 'XCUIElementTypeNavigationBar' and e.get('visible') == 'true']
+        return len(bars) == 1 and bars[0].get('name') in {'Pin', 'Battery'}
+
+    def find_battery(self):
+        self._battery_element = None
+        if not self.settings_foreground():
+            return None
+        # Identifier observed on device; no text fallback, scrolling or coordinate guess.
+        query = "type == 'XCUIElementTypeButton' AND name == 'com.apple.settings.battery' AND visible == 1 AND enabled == 1"
+        matches = self.session_request('POST', '/elements', {'using': 'predicate string', 'value': query})['value']
+        if len(matches) != 1:
+            return None
+        self._battery_element = matches[0].get('element-6066-11e4-a52e-4f735466cecf') or matches[0].get('ELEMENT')
+        return self._battery_element
+
+    def click_battery(self, element_id):
+        if not element_id or element_id != self._battery_element:
+            raise TargetChangedError('Target not from this observation')
+        self._battery_element = None  # Consume once, including on timeout.
+        path = '/element/' + quote(element_id, safe='')
+        if not self.settings_foreground():
+            raise TargetChangedError('Foreground changed')
+        checks = {'/attribute/name': 'com.apple.settings.battery', '/attribute/type': 'XCUIElementTypeButton',
+                  '/displayed': True, '/enabled': True}
+        for suffix, expected in checks.items():
+            if self.session_request('GET', path + suffix)['value'] != expected:
+                raise TargetChangedError('Element changed')
+        if not self.settings_foreground():
+            raise TargetChangedError('Foreground changed')
+        self.session_request('POST', path + '/click', {})

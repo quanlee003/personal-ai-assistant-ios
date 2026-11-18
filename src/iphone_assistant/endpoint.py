@@ -77,12 +77,13 @@ def record_until_silence(*, threshold=500, silence_seconds=1.2) -> bytes:
         deadline = time.monotonic() + endpoint.max_seconds + 2
         while not done.wait(.05):
             if time.monotonic() >= deadline:
-                raise SpeechInputError('Microphone timeout; không gửi audio.')
+                raise SpeechInputError('Microphone timeout; không gửi audio.', code='audio_timeout')
     if outcome != ['complete']:
         reason = {'no_speech': 'Không nghe rõ lời nói trong 8 giây.',
                   'too_long': 'Câu nói chạm giới hạn 20 giây.',
                   'audio_error': 'Microphone có lỗi.'}.get(outcome[0] if outcome else '', 'Thu âm bị ngắt.')
-        raise SpeechInputError(reason + ' Không gửi audio, không tự thử lại.')
+        raise SpeechInputError(reason + ' Không gửi audio, không tự thử lại.',
+                               code=outcome[0] if outcome else 'audio_error')
     output = io.BytesIO()
     with wave.open(output, 'wb') as wav:
         wav.setnchannels(1)

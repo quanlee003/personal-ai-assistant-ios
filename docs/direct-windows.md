@@ -1,5 +1,51 @@
 # Điều khiển trực tiếp trên Windows — milestone mở Cài đặt đã đạt
 
+## Cập nhật: mở trang Pin bằng phần tử WDA
+
+README đã push ở `cb2b5ec`. Sau khi người dùng đồng ý giữ iPhone mở khóa, đã thử
+mở Cài đặt và chạm một lần vào nút `com.apple.settings.battery`. Cây giao diện
+thực tế cho thấy đây là `XCUIElementTypeButton`, label `Pin`, visible/enabled.
+Ảnh sau hiển thị trang Pin, navigation bar tên Pin; không thay đổi công tắc nào.
+Bằng chứng local: `captures/battery-smoke-56b1b0d2/` (không commit ảnh/XML).
+Một vùng thống kê trong ảnh còn loading; chỉ chứng minh đã vào trang, không
+khẳng định tải xong toàn bộ dữ liệu pin. Đánh giá bằng review ảnh, không gán là AI Gateway verified.
+
+Backend mới giữ session của lượt, kiểm tra foreground `com.apple.Preferences`,
+tìm đúng một nút theo identifier/type/visible/enabled và kiểm tra lại trước click.
+Không tìm theo tọa độ, không fallback text, không cuộn, không retry click. Nếu đã
+ở trang Pin, bỏ qua click; nếu đang trang con khác và không thấy nút thì dừng.
+Có khoảng thời gian giữa kiểm tra và click; người dùng không nên thao tác song song.
+
+Tác vụ Pin có tối đa hai bước (launch + click), mỗi bước chỉ gọi một lần.
+`action_acknowledged=true` có thể chỉ phản ánh launch đã được xác nhận; dùng thêm
+`steps_attempted`/`steps_acknowledged` để nhận biết tiến độ. Bộ đếm attempted bao gồm
+bước đã bắt đầu nhưng bị guard chặn trước khi gửi. Mất mục tiêu sau launch là
+`target_not_found` với attempted=true, phiên dừng. Timeout click là uncertain.
+API thành công chưa được coi là verified; kiểm tra navigation bar Pin trước khi
+cho AI đánh giá ảnh theo prompt riêng, không chấp nhận hàng Pin ở trang chính.
+
+```powershell
+# Preview offline
+.\.venv\Scripts\python.exe -m iphone_assistant.direct_cli "mở phần Pin trong Cài đặt"
+# Thử qua voice auto: nói “mở phần Pin trong Cài đặt”
+.\.venv\Scripts\python.exe -m iphone_assistant.direct_cli --auto --max-turns 1
+```
+
+Đã chạy 47 tests (mock), compileall, diff-check. Sau phép thử trực tiếp, người dùng
+chạy voice auto: hai bản ghi mới nhất đều `verified_match`, attempted/acknowledged
+hai bước, không có error_code. Ảnh nằm ở `captures/direct-0655f042/` và
+`captures/direct-5d572462/`. Đã kiểm chứng toàn luồng microphone → AI → workflow
+Pin mới → AI verify. Không xác nhận chúng thuộc cùng phiên vì chưa ghi session ID.
+Audio có mã lỗi no_speech/too_long/audio_error/audio_timeout/audio_capture_error và
+transcription_error để tách lỗi thu/nhận dạng; không ghi nội dung exception nhạy cảm.
+Các mục mô tả chỉ hỗ trợ Cài đặt bên dưới phản ánh milestone trước cập nhật này.
+
+API đối chiếu từ mã nguồn WDA chính thức:
+[tìm phần tử](https://github.com/appium/WebDriverAgent/blob/master/WebDriverAgentLib/Commands/FBFindElementCommands.m),
+[thuộc tính và click](https://github.com/appium/WebDriverAgent/blob/master/WebDriverAgentLib/Commands/FBElementCommands.m).
+Các endpoint tìm/kiểm tra/click đã được thử trên runner đang cài; không suy ra
+tương thích mọi phiên bản chỉ từ mã nguồn nhánh master.
+
 ## Trạng thái mới nhất: phép thử trực tiếp đạt
 
 Sau khi người dùng đồng ý, đã chạy đúng một lần:
@@ -46,7 +92,8 @@ im lặng/tiếng động ngắn/câu dài. Kiểm tra log ngày 18/11/2026 xác
 trải nghiệm auto hoạt động khá ổn. Hai lượt auto khác báo `SpeechInputError`,
 attempted/acknowledged đều false; thông báo hiện tại không đủ để phân biệt nguyên
 nhân thu âm hay nhận dạng. Không suy đoán đó chắc chắn là im lặng. Chưa chứng minh
-hai lượt auto thành công liên tiếp hoặc độ ổn định trong môi trường ồn.
+độ ổn định trong môi trường ồn. Kết quả hai lượt Pin mới phía trên thay thế giới
+hạn về việc chưa có hai lượt auto thành công trong khảo sát ban đầu này.
 
 ### Chế độ debug giữ xác nhận
 

@@ -8,7 +8,9 @@ from urllib.request import Request, urlopen
 
 
 class SpeechInputError(RuntimeError):
-    pass
+    def __init__(self, message, *, code=None):
+        super().__init__(message)
+        self.code = code
 
 
 def record_wav(

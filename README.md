@@ -4,8 +4,9 @@ Bạn nói vào microphone của PC Windows → trợ lý hiểu yêu cầu → 
 tiếp đến iPhone qua WebDriverAgent (WDA) → chụp màn hình để AI xác minh kết quả.
 Chế độ tự động không yêu cầu Enter, sửa câu hay xác nhận `y` từng lượt.
 
-**Bản hiện tại chỉ thực hiện “mở Cài đặt”.** Chưa chạm các mục bên trong, đổi tùy
-chọn, điều khiển app khác hoặc lập kế hoạch nhiều bước. Đây là bản thử nghiệm
+**Bản hiện tại hỗ trợ “mở Cài đặt” và “mở phần Pin trong Cài đặt”.** Tác vụ Pin
+chỉ mở trang để xem, không đổi tùy chọn. Chưa điều khiển app khác hoặc tự lập kế
+hoạch nhiều bước. Đây là bản thử nghiệm
 dùng PC kết nối iPhone, chưa phải ứng dụng độc lập cài từ App Store.
 
 ## 1. Dùng ngay trên máy đã thiết lập
@@ -47,6 +48,12 @@ Khi hiện **“Đang nghe…”**, nói **“mở Cài đặt”**, rồi ngừ
 Chương trình tự kết thúc thu, hiểu yêu cầu, mở Cài đặt và đánh giá ảnh. Không cần
 nhấn Enter hoặc nhập `y`.
 
+Có thể nói **“mở phần Pin trong Cài đặt”**: trợ lý mở Cài đặt, tìm đúng một nút Pin
+đang hiển thị và chạm một lần, rồi xác minh trang Pin. Nếu đã ở trang Pin thì không
+chạm thêm. Nếu không thấy đúng mục tiêu, phiên dừng; chưa tự cuộn hoặc quay lại
+trang chính từ một trang con khác. Không thao tác iPhone bằng tay trong lúc chạy.
+Hai lượt auto mở trang Pin đã chạy end-to-end và được AI xác minh thành công.
+
 Muốn chạy tối đa hai lượt liên tiếp:
 
 ```powershell
@@ -81,7 +88,7 @@ vẫn còn trong code để debug riêng.
 
 Câu không rõ: hiện câu hỏi trên terminal, nghe yêu cầu mới nếu còn lượt, không
 tái dùng mục tiêu cũ. Chưa có phản hồi bằng giọng nói; vẫn cần nhìn trạng thái
-trên terminal. Hiện chưa có chức năng “mở phần Pin trong Cài đặt”.
+trên terminal. Tác vụ Pin là quy trình cố định tối đa hai bước, chưa phải planner tự do.
 
 ## 3. Đọc kết quả và tìm bản ghi
 
@@ -90,7 +97,7 @@ trên terminal. Hiện chưa có chức năng “mở phần Pin trong Cài đ�
 | `verified_match` | AI thấy ảnh sau phù hợp với màn hình mong đợi. |
 | `action_sent` | WDA đã phản hồi nhưng chưa đánh giá kết quả bằng ảnh. |
 | `needs_clarification` | Câu chưa rõ hoặc chưa hỗ trợ; không thao tác. |
-| `target_not_found` | Mục tiêu ngoài phạm vi direct hỗ trợ. |
+| `target_not_found` | Mục tiêu ngoài phạm vi hoặc không tìm thấy nút Pin hợp lệ. Có thể đã mở Cài đặt; xem các cờ/bộ đếm bước. |
 | `verified_mismatch` | Ảnh sau không phù hợp; phiên dừng. |
 | `verification_uncertain` | Chưa đủ bằng chứng, bỏ qua xác minh hoặc lỗi sau khi bắt đầu thao tác; phiên dừng. |
 | `error` | Lượt xử lý lỗi; cần đối chiếu cờ thao tác, không suy ra thiết bị đã thay đổi. |
@@ -103,6 +110,8 @@ trên terminal. Hiện chưa có chức năng “mở phần Pin trong Cài đ�
 
 - JSON: `runtime/direct-results/<id>/result.json`, gồm chế độ `auto`/`debug`,
   thời gian UTC, trạng thái, thông báo và đường dẫn ảnh nếu có.
+- `steps_attempted`/`steps_acknowledged`: số bước bắt đầu/được phản hồi; một bước
+  có thể bị chặn lúc kiểm tra trước khi gửi. `error_code` giúp phân loại lỗi.
 - Ảnh: `captures/direct-<id>/before.png` và `after.png`.
 - Các thư mục này được Git ignore; chưa có cơ chế tự dọn theo thời hạn.
 
@@ -119,11 +128,16 @@ Get-ChildItem .\runtime\direct-results\*\result.json |
 
 | Hiện tượng | Cách xử lý hiện tại |
 | --- | --- |
-| `SpeechInputError` | Kiểm tra microphone mặc định, quyền microphone của Windows, tai nghe và Internet. Log còn gộp lỗi thu/nhận dạng, chưa đủ xác định nguyên nhân chính xác. |
+| `no_speech` | Chưa thu đủ lời nói trong 8 giây; kiểm tra microphone và nói khi hiện “Đang nghe”. Chưa gửi audio. |
+| `too_long` | Thu đạt 20 giây; nói câu ngắn hơn, giảm tiếng nền. Bản thu bị cắt không được gửi. |
+| `audio_error` / `audio_timeout` / `audio_capture_error` | Lỗi/cảnh báo hoặc timeout microphone; kiểm tra đầu vào và quyền microphone. Chưa gửi audio. |
+| `transcription_error` | Audio đã qua bước thu nhưng nhận dạng Deepgram lỗi; kiểm tra Internet/key/quota. Chưa thao tác iPhone. |
 | Nhận sai câu | Nói câu ngắn, rõ, gần microphone. Auto không bắt gõ sửa; nói lại ở lượt nghe mới. |
 | Ngừng giữa câu làm kết thúc sớm | Tăng khoảng im lặng, ví dụ `--silence-seconds 1.8`. |
 | Tiếng nền khiến thu mãi | Giảm tiếng nền; có thể tăng `--voice-threshold`. Quá cao sẽ bỏ sót giọng nhỏ. |
 | Lỗi sau khi gửi thao tác | Xem màn hình/ảnh và JSON trước khi chạy lại để tránh lặp thao tác chưa rõ kết quả. |
+
+Các bản ghi cũ chỉ có `SpeechInputError` chưa thể phân loại lại chỉ từ dữ liệu đã lưu.
 
 ```powershell
 .\.venv\Scripts\python.exe -m iphone_assistant.direct_cli --auto --max-turns 1 --silence-seconds 1.8
@@ -246,7 +260,7 @@ Các mục sau là hướng phát triển, **chưa phải tính năng hiện có
 | Ngưỡng âm lượng cố định | Chọn microphone, đo thử âm thanh, phát hiện hết câu ổn định trong tiếng ồn. |
 | Chỉ phản hồi terminal | Phản hồi dễ hiểu, hỏi lại bằng giọng nói; tránh thu lại tiếng trợ lý. |
 | Người dùng tự chuẩn bị key | Thiết kế đăng nhập, lưu secret, quota và chi phí rõ ràng. |
-| Chỉ mở Cài đặt | Mở rộng từng tác vụ đã kiểm chứng: nhận diện phần tử, thực thi, xác minh. |
+| Mở Cài đặt/trang Pin qua quy trình cố định | Mở rộng từng tác vụ đã kiểm chứng: nhận diện phần tử, thực thi, xác minh. |
 | Ảnh/JSON tích lũy trong thư mục | Lịch sử dễ đọc, thời hạn lưu/xóa và quyền chia sẻ dữ liệu minh bạch. |
 
 Thứ tự đề xuất: **ổn định kết nối/audio → giao diện một nút → mở rộng tác vụ**.
@@ -261,9 +275,14 @@ Tính đến 18/11/2026:
 
 - Một lượt auto thực tế đạt `verified_match`: giọng nói → AI → WDA → AI xác minh.
 - Có câu không rõ được chặn trước thao tác; hai lượt auto lỗi audio/nhận dạng
-  trước thao tác. Chưa chứng minh hai lượt auto thành công liên tiếp hoặc ổn định trong tiếng ồn.
-- 32 unit tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
-- Chưa kiểm chứng chạm mục Pin, app khác, máy/thiết bị khác hoặc phục hồi sau reboot đầy đủ.
+  trước thao tác trong giai đoạn đầu. Chưa kiểm chứng độ ổn định trong tiếng ồn.
+- Đã mở Cài đặt và chạm đúng nút Pin bằng identifier WDA; ảnh sau và tiêu đề điều
+  hướng xác nhận trang Pin. Hai bản ghi auto mới nhất đều `verified_match`,
+  `steps_attempted=2`, `steps_acknowledged=2`, `error_code=null`; người dùng xác
+  nhận hoạt động tốt. Đã kiểm chứng giọng nói → AI → launch/click → AI xác minh.
+  Không suy ra hai lượt thuộc cùng một phiên vì bản ghi chưa có session ID.
+- 47 unit tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
+- Chưa kiểm chứng app khác, máy/thiết bị khác hoặc phục hồi sau reboot đầy đủ.
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
