@@ -15,6 +15,41 @@ Các mục chưa đạt bên dưới là lịch sử khảo sát, được kết
 
 ## CLI direct tối thiểu
 
+### Chế độ tự động mới (opt-in)
+
+```powershell
+.\.venv\Scripts\python.exe -m iphone_assistant.direct_cli --auto --max-turns 2
+```
+
+`--auto` bật phiên giọng nói, AI, thực thi và xác minh. Không hỏi Enter/y hoặc
+bắt sửa câu; chỉ được mở Cài đặt qua cùng validator giới hạn phạm vi. Chạy lệnh
+này chủ động cho phép audio gửi Deepgram, câu và ảnh gửi AI Gateway hiện có.
+Không hỗ trợ hành động nhạy cảm; không tự nới phạm vi dựa trên câu nói.
+
+Thu âm bắt đầu khi hiện “Đang nghe”, kết thúc sau 1.2 giây im lặng. Bộ phát hiện
+dựa trên RMS int16 (mặc định 500), chưa phải bộ phân biệt tiếng nói/tiếng ồn chuyên
+dụng. Có thể chỉnh `--voice-threshold` (1–32767) và `--silence-seconds` (0.5–3).
+Không nghe lời nói đủ dài trong 8 giây hoặc đạt giới hạn 20 giây: dừng và không
+gửi bản thu. Môi trường ồn có thể làm nhận sai hoặc chạm giới hạn; chưa hiệu chỉnh
+thực tế với EarPods. Microphone đóng trước khi gọi cloud/WDA, không nghe nền.
+
+Câu không rõ: hiện câu hỏi trên terminal, nghe một yêu cầu mới ở lượt tiếp theo;
+không kế thừa mục tiêu cũ. Chưa có phản hồi hỏi lại bằng giọng nói. Nói “dừng” khi
+đang nghe để kết thúc sau nhận dạng; Ctrl+C để ngắt kể cả đang gọi API. Không
+nghe lệnh dừng bằng giọng nói khi microphone đã đóng. Lỗi hoặc xác minh chưa rõ
+dừng phiên, không gửi lại thao tác. Mặc định tối đa 10 lượt; hết lượt phải chạy lại.
+
+Bản ghi có `mode=auto` hoặc `debug`. 32 unit tests đạt, bao gồm không có input
+trong auto, validator vẫn chặn app khác, dừng bằng lời, giới hạn lượt và xử lý
+im lặng/tiếng động ngắn/câu dài. Kiểm tra log ngày 18/11/2026 xác nhận một lượt
+`mode=auto`, `verified_match`, attempted/acknowledged đều true. Người dùng xác nhận
+trải nghiệm auto hoạt động khá ổn. Hai lượt auto khác báo `SpeechInputError`,
+attempted/acknowledged đều false; thông báo hiện tại không đủ để phân biệt nguyên
+nhân thu âm hay nhận dạng. Không suy đoán đó chắc chắn là im lặng. Chưa chứng minh
+hai lượt auto thành công liên tiếp hoặc độ ổn định trong môi trường ồn.
+
+### Chế độ debug giữ xác nhận
+
 Chỉ mở Cài đặt theo bundle ID; chưa hỗ trợ chạm tùy ý, tọa độ hoặc app khác.
 Lõi `direct.py` trả ActionResult, interface DirectBackend nhỏ; `wda.py` thực thi.
 CLI cũ vẫn giữ nguyên, không có automatic fallback giữa direct và TTS.
@@ -36,16 +71,15 @@ Không sửa `session.py` untracked của người dùng.
 Một lượt chỉ có tối đa một hành động, không tự retry. Mỗi request WDA có socket
 timeout 30 giây, registry 5 giây; API intent 30 giây, vision 60 giây theo code cũ.
 Chờ input của người dùng không có timeout. Ctrl+C dừng lượt; nếu POST đã gửi thì
-kết quả chưa rõ, không tự gửi lại. Không có chế độ bỏ xác nhận. Enter kết thúc
-thu âm, chưa tự nhận biết nói xong. Các trạng thái canceled, needs_clarification,
+kết quả chưa rõ, không tự gửi lại. Trong debug, giữ xác nhận và Enter kết thúc
+thu âm; chế độ auto được mô tả riêng phía trên. Các trạng thái canceled, needs_clarification,
 target_not_found, action_sent, verified_match/mismatch, verification_uncertain,
 error và dry_run được trả riêng. action_sent không có nghĩa đã kiểm chứng.
 Không giữ mục tiêu hoặc ảnh từ lượt trước. Backend direct không phát âm thanh.
 
-Đã chạy 13 unit tests đạt, compileall và git diff --check đạt; preview CLI và
-WDA status đạt. Có test mock cho hủy, mơ hồ, lỗi, timeout không retry, tách trạng
-thái và không tái dùng mục tiêu. **Luồng mới microphone → AI → direct → AI verify
-chưa chạy end-to-end**, không gửi thêm ảnh hay mở Cài đặt lần nữa trong đợt này.
+Ở milestone direct ban đầu, 13 unit tests, compileall, git diff --check, preview
+CLI và WDA status đã đạt. Sau các cập nhật, bộ test hiện có 32 tests đạt và đã có
+lượt microphone → AI → direct → AI verify thành công như ghi nhận phía trên.
 
 ## Khởi động lại runtime đã thiết lập
 
@@ -60,6 +94,13 @@ xác nhận hiện có; `/quit` ở đầu lượt hoặc Ctrl+C để thoát. H
 đóng phiên. Lỗi, kết quả không khớp hoặc chưa rõ sẽ dừng phiên, không tự thử lại.
 Chỉ mở Cài đặt, chưa hỗ trợ thao tác khác; Enter vẫn kết thúc thu âm.
 
+Sau nhận dạng có bước xem lại câu: Enter giữ nguyên, hoặc gõ lại **toàn bộ câu**
+để thay thế trước khi gửi AI/parse local. `/cancel`, `/quit` hoặc Ctrl+C dừng phiên.
+Ví dụ nhận sai “mở mở cái đất”: gõ “mở Cài đặt”. Không tự đoán/sửa nội dung,
+không tự thu lại hay gửi lại audio. Audio đã gửi Deepgram để nhận dạng trước bước
+này; chỉ câu đã chọn mới gửi AI Gateway sau xác nhận `y`. Xác nhận thực thi và
+gửi ảnh vẫn riêng biệt. Không lưu thêm transcript gốc hoặc câu sửa vào bản ghi.
+
 Cả CLI một lượt và phiên nhiều lượt lưu `runtime/direct-results/<id>/result.json`,
 gồm trạng thái, thời gian UTC, cờ attempted/acknowledged và đường dẫn ảnh nếu có.
 Không lưu riêng audio/transcript; thông báo kết quả có thể chứa nội dung AI trả về.
@@ -73,6 +114,14 @@ với `action_attempted=true`, `action_acknowledged=true` và đường dẫn �
 Người dùng bỏ qua đánh giá ảnh nên kết quả là `verification_uncertain`; phiên
 dừng đúng thiết kế. Chưa chứng minh nhiều lượt liên tiếp hoặc AI xác minh thành công
 trong phiên mới. WDA status kiểm tra lại vẫn `ready=true`.
+
+Kiểm thử tiếp của người dùng: một lượt có `verified_match` sau thực thi và AI
+xác minh; lượt kế tiếp `needs_clarification` do câu nhận dạng không rõ và
+`action_attempted=false`. Như vậy đã có một lượt end-to-end và nhánh hỏi lại,
+chưa có hai lượt thực thi thành công liên tiếp. Người dùng sau đó xác nhận bước
+sửa câu hoạt động thực tế. Khi bổ sung bước sửa câu, 24 tests đã đạt, gồm sửa câu
+trước AI, giữ nguyên câu, hủy/ngắt, giới hạn phạm vi và không tái dùng câu sửa qua
+lượt mới; số test hiện tại sau bổ sung auto là 32.
 
 ### Runtime
 

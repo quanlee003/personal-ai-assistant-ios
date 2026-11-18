@@ -13,7 +13,11 @@ A Vietnamese voice-controlled iPhone assistant, built independently with archite
 
 Speech (Deepgram), vision (AI Gateway), numbered Voice Control/TTS and screenshot verification modules are implemented. On 18 November 2026, WDA directly opened Settings on the connected iOS 27 iPhone and captured the resulting screen. No TTS was used. This validates that single action, not arbitrary app control.
 
-Windows setup, evidence, limitations and commands: [Direct control on Windows](docs/direct-windows.md). The separate `iphone_assistant.direct_cli` supports Settings only, defaults to preview and requires confirmation to execute. Optional `--listen --ai --verify` reuses Deepgram and AI Gateway; the complete voice/cloud path has not been tested in this milestone.
+Windows setup, evidence, limitations and commands: [Direct control on Windows](docs/direct-windows.md). The separate `iphone_assistant.direct_cli` supports Settings only and defaults to preview. Debug execution requires confirmation; explicit `--auto` enables the bounded voice workflow without prompts. Deepgram and AI Gateway remain the existing providers.
+
+Automatic Settings-only voice mode: `python -m iphone_assistant.direct_cli --auto --max-turns 2`. This explicitly enables recording, Deepgram transcription, AI Gateway intent/screenshot verification and WDA execution without per-turn prompts. Silence ends each recording; say “dừng” while listening or press Ctrl+C to stop. A physical auto trial on 18 November 2026 recorded `verified_match`; two other trials stopped with `SpeechInputError` before attempting device actions. Audio robustness still needs improvement.
+
+Without `--auto`, debug mode retains confirmations. With `--listen`, review the recognized text before processing: Enter keeps it, typing a full sentence replaces it, and `/cancel` exits. Sending to AI, executing and sharing the verification screenshot require their own confirmations in debug mode.
 
 See docs/architecture.md.
 

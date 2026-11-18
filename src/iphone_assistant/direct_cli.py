@@ -3,7 +3,7 @@ import argparse
 import json
 import sys
 
-from .commands import parse_command, UnsupportedCommand
+from .commands import normalize, parse_command, UnsupportedCommand
 from .device import PROJECT_ROOT
 from .direct import ActionResult, execute, validate_command
 
@@ -21,16 +21,34 @@ message là câu hỏi hoặc giải thích ngắn bằng tiếng Việt.
 
 def run_turn(args, request=None):
     """Return one fresh result; never parse output or retain a previous target."""
+    automatic = getattr(args, 'auto', False)
     try:
         if args.listen:
             from .speech import record_wav, transcribe_vietnamese
-            print('Audio sẽ gửi Deepgram. Enter kết thúc thu; chưa tự phát hiện nói xong. Ctrl+C để dừng.')
-            request = transcribe_vietnamese(record_wav())
+            if automatic:
+                from .endpoint import record_until_silence
+                audio = record_until_silence(threshold=args.voice_threshold,
+                                             silence_seconds=args.silence_seconds)
+            else:
+                print('Audio sẽ gửi Deepgram. Enter kết thúc thu; Ctrl+C để dừng.')
+                audio = record_wav()
+            request = transcribe_vietnamese(audio)
             print('Nhận dạng:', request)
+            if not automatic:
+                correction = input(
+                    'Enter giữ nguyên; gõ lại cả câu để sửa; /cancel hoặc /quit để dừng: '
+                ).strip()
+                if correction.casefold() in {'/cancel', '/quit', '/exit'}:
+                    return ActionResult('canceled', 'Đã hủy sau nhận dạng, chưa gửi yêu cầu AI hoặc thao tác.')
+                if correction:
+                    request = correction
+                print('Yêu cầu sẽ xử lý:', request)
+        if automatic and normalize(request) in {'dung', 'dung lai', 'huy', 'stop', 'thoat'}:
+            return ActionResult('canceled', 'Đã dừng phiên.')
         if args.ai:
             from .intent import understand_intent
             print('Yêu cầu sẽ gửi AI Gateway hiện có để hiểu ý định.')
-            if input('Nhập y để gửi; Enter để hủy: ').strip().casefold() != 'y':
+            if not automatic and input('Nhập y để gửi; Enter để hủy: ').strip().casefold() != 'y':
                 result = ActionResult('canceled', 'Đã hủy trước khi gửi AI.')
                 return result
             intent = understand_intent(request, system_prompt=DIRECT_PROMPT)
@@ -49,12 +67,12 @@ def run_turn(args, request=None):
         if not args.execute:
             return ActionResult('dry_run', 'Dự kiến mở Cài đặt bằng WDA.')
         print('Thao tác: mở Cài đặt; lưu ảnh trước/sau local. Không đổi tùy chọn.')
-        if input('Nhập y để thực thi; Enter để hủy: ').strip().casefold() != 'y':
+        if not automatic and input('Nhập y để thực thi; Enter để hủy: ').strip().casefold() != 'y':
             return ActionResult('canceled', 'Đã hủy.')
 
         def verify(path):
             print('Ảnh sau sẽ gửi AI Gateway/model hiện có để đánh giá màn hình Cài đặt.')
-            if input('Nhập y để gửi ảnh; Enter để bỏ qua: ').strip().casefold() != 'y':
+            if not automatic and input('Nhập y để gửi ảnh; Enter để bỏ qua: ').strip().casefold() != 'y':
                 return 'clarify', 'Đã bỏ qua đánh giá ảnh sau thao tác.'
             from .verification import verify_screen
             observation = verify_screen(path, 'Ứng dụng Cài đặt đang mở ở foreground.')
@@ -79,6 +97,7 @@ def run_logged_turn(args, request=None):
     folder.mkdir(parents=True)
     path = folder / 'result.json'
     started = datetime.now(timezone.utc).isoformat()
+    mode = 'auto' if getattr(args, 'auto', False) else 'debug'
 
     def save(payload):
         temporary = folder / 'result.tmp'
@@ -87,12 +106,12 @@ def run_logged_turn(args, request=None):
 
     # Written before any microphone, cloud or device work. A crash leaves an
     # explicitly incomplete record, never an invented successful outcome.
-    save({'status': 'incomplete', 'started_at': started,
+    save({'status': 'incomplete', 'started_at': started, 'mode': mode,
           'message': 'Lượt chưa kết thúc; chưa biết có thao tác hay không. Không tự chạy lại.'})
     result = run_turn(args, request)
     print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
     try:
-        save({**result.to_dict(), 'started_at': started,
+        save({**result.to_dict(), 'started_at': started, 'mode': mode,
               'finished_at': datetime.now(timezone.utc).isoformat()})
     except OSError:
         print('Không lưu được kết quả cuối. Đóng phiên; không tự thực hiện lại.')
@@ -112,7 +131,16 @@ def main():
     parser.add_argument('--verify', action='store_true', help='Gửi ảnh sau qua AI Gateway khi được xác nhận')
     parser.add_argument('--session', action='store_true', help='Nhiều lượt độc lập; /quit để thoát')
     parser.add_argument('--max-turns', type=int, default=10, help='Giới hạn phiên, từ 1 đến 100')
+    parser.add_argument('--auto', action='store_true', help='Phiên giọng nói tự động, chỉ mở Cài đặt; gửi audio/ý định/ảnh tới dịch vụ hiện có')
+    parser.add_argument('--voice-threshold', type=int, default=500, help='Ngưỡng RMS int16 để phát hiện tiếng nói (1–32767)')
+    parser.add_argument('--silence-seconds', type=float, default=1.2, help='Khoảng im lặng kết thúc câu (0.5–3 giây)')
     args = parser.parse_args()
+    if args.auto:
+        if args.request:
+            parser.error('--auto chỉ nhận giọng nói trong phiên.')
+        args.session = args.listen = args.ai = args.execute = args.verify = True
+    if not 1 <= args.voice_threshold <= 32767 or not .5 <= args.silence_seconds <= 3:
+        parser.error('Ngưỡng tiếng nói hoặc khoảng im lặng ngoài phạm vi.')
     if args.session:
         if args.request:
             parser.error('--session nhận yêu cầu mới ở đầu mỗi lượt, không nhận positional request.')
@@ -124,10 +152,13 @@ def main():
         parser.error('--max-turns phải từ 1 đến 100.')
     from dotenv import load_dotenv
     load_dotenv(PROJECT_ROOT / '.env', override=False)
+    if args.auto:
+        print('AUTO: chỉ mở Cài đặt, không hỏi y. Audio → Deepgram; câu và ảnh → AI Gateway hiện có.')
+        print('Nói “dừng” khi đang nghe hoặc Ctrl+C bất kỳ lúc nào. Microphone đóng khi AI/thao tác chạy.')
     try:
         for turn in range(args.max_turns if args.session else 1):
             request = args.request
-            if args.session:
+            if args.session and not args.auto:
                 print(f'Lượt {turn + 1}/{args.max_turns}. Chỉ hỗ trợ mở Cài đặt.')
                 request = input('Enter chuẩn bị thu âm; /quit để thoát: ' if args.listen
                                 else 'Yêu cầu mới; /quit để thoát: ').strip()
@@ -143,6 +174,8 @@ def main():
                 raise SystemExit(1)
             if result.status == 'canceled':
                 return
+            if args.auto and result.status in {'needs_clarification', 'target_not_found'}:
+                print('Chưa thao tác. Hãy nói lại yêu cầu đầy đủ ở lượt nghe tiếp theo.', flush=True)
         if args.session:
             print('Đã đạt giới hạn lượt, đóng phiên.')
     except (KeyboardInterrupt, EOFError):
