@@ -15,6 +15,9 @@ def is_battery(command: Command | None) -> bool:
 
 
 def parse_direct_command(request: str) -> Command:
+    for direction, phrases in {'down': {'cuon xuong', 'scroll down'}, 'up': {'cuon len', 'scroll up'}}.items():
+        if normalize(request) in phrases:
+            return Command('scroll', {'direction': direction})
     if normalize(request) in {'quay lai', 'tro lai', 'go back', 'back'}:
         return Command('go_back')
     from .screen_navigation import TABS

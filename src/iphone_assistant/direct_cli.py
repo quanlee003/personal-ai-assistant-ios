@@ -24,7 +24,10 @@ stopwatch (Bấm giờ/Stopwatch), timers (Hẹn giờ/Timers).
 Ví dụ "chuyển sang Bấm giờ", "switch to Timers": select_tab.
 Ví dụ "chuyển sang tab Tìm kiếm": select_tab value="Tìm kiếm".
 Hỗ trợ go_back, value="", để quay lại một trang trong ứng dụng hiện tại.
-Không tự mở app trước khi chuyển tab hoặc quay lại. Không hỗ trợ cuộn ở bản này.
+Không tự mở app trước khi chuyển tab hoặc quay lại.
+Hỗ trợ scroll với value="up" (cuộn lên/scroll up) hoặc "down" (cuộn xuống/scroll down),
+direction="none". Mỗi lệnh chỉ cuộn một lần. Không hỗ trợ cuộn tới một mục,
+cuộn hết trang, cuộn nhiều lần hoặc vuốt ngang; không bỏ bớt yêu cầu đó.
 Không tạo/sửa báo thức, không bắt đầu/dừng bộ đếm. Không hỗ trợ chạm tùy ý hoặc ghép nhiều yêu cầu.
 Giữ nguyên tên app được nhắc đến, không đoán tên hoặc bundle ID. Danh sách app sẽ được đối chiếu local.
 Yêu cầu mở trang Pin là một tác vụ cố định được hỗ trợ. Các yêu cầu nhiều bước
@@ -96,6 +99,15 @@ def run_turn(args, request=None, *, stop_event=None, on_event=None):
                 command = parse_direct_command(request)
             except UnsupportedCommand:
                 command = None
+        if command is not None and command.action == 'scroll':
+            if set(command.arguments) != {'direction'}:
+                return ActionResult('needs_clarification', 'Chưa xác định hướng cuộn.')
+            if args.execute and not automatic:
+                if input('Nhập y để cuộn; Enter để hủy: ').strip().casefold() != 'y':
+                    return ActionResult('canceled', 'Đã hủy trước khi cuộn.')
+            from .screen_scroll import scroll_screen
+            return scroll_screen(command.arguments['direction'], stop_event=stop_event,
+                                 on_event=on_event, dry_run=not args.execute)
         if command is not None and command.action == 'go_back':
             if command.arguments:
                 return ActionResult('needs_clarification', 'Lệnh quay lại có tham số không hợp lệ.')

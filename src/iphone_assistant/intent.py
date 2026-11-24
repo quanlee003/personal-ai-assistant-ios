@@ -27,10 +27,11 @@ class ModelIntent(BaseModel):
         "select_target",
         "select_tab",
         "go_back",
+        "scroll",
         "stop",
     ]
 
-    # Keep the response shape used by the direct prompt; no directional actions.
+    # Preserve the response shape; scroll encodes up/down in value.
     direction: Literal["none"]
 
     value: str
@@ -87,6 +88,10 @@ def validate_intent(item: ModelIntent) -> IntentResult:
             {argument_name: item.value},
         )
 
+    elif item.action == "scroll":
+        if item.direction != "none" or item.value not in {"up", "down"}:
+            raise IntentError("Hướng cuộn không hợp lệ.")
+        command = Command('scroll', {'direction': item.value})
     elif item.action in {"stop", "go_back"}:
         if item.direction != "none" or item.value != "":
             raise IntentError(
