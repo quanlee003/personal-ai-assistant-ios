@@ -19,6 +19,7 @@ direct_cli (auto hoặc debug)
 | Module | Trách nhiệm |
 | --- | --- |
 | `desktop.py` | Cửa sổ Tkinter, trạng thái, nút Bắt đầu/Dừng và kết quả; không xử lý nền trên Tk thread. |
+| `onboarding.py` | Chọn bước thiết lập từ bằng chứng readiness/catalog; lưu đã bỏ qua lời giới thiệu theo thiết bị, không lưu consent đọc báo cáo. |
 | `desktop_controller.py` | Kiểm tra điều kiện, một worker mỗi cửa sổ, giới hạn 1–10 lượt và sự kiện có cấu trúc. |
 | `control.py` | Dừng hợp tác trước bước tiếp theo; không hủy cưỡng bức lệnh đang chạy. |
 | `direct_cli.py` | Input/output, cấu hình `.env`, auto/debug, giới hạn lượt, JSON local. |

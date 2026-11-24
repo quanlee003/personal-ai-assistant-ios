@@ -13,6 +13,24 @@ dùng PC kết nối iPhone, chưa phải ứng dụng độc lập cài từ Ap
 
 ### Mở cửa sổ Windows
 
+**Thiết lập khi mở app:** cửa sổ kiểm tra USB/Tin cậy, WDA và trạng thái mở khóa
+iPhone, microphone, cấu hình dịch vụ. Nếu còn thiếu, chỉ hiện bước cần làm
+tiếp; app kiểm tra lại khoảng 12 giây/lần khi rảnh. Không tự bật quyền. Khi WDA
+chưa hoạt động, app chưa thể mở trang trên iPhone nên hướng dẫn thao tác thủ
+công. Developer Mode/provisioning chưa được kiểm tra riêng; lỗi kết nối không
+đồng nghĩa một quyền cụ thể đang tắt. Kiểm tra key chỉ xác nhận có cấu hình.
+
+Khi các điều kiện cơ bản sẵn sàng, app giới thiệu **Thời gian sử dụng** với nhãn
+**Khuyên dùng · Không bắt buộc**. Chọn **Mở Thời gian sử dụng** để điều hướng và
+tự bật trên iPhone, hoặc **Để sau** để vào trợ lý. Sau khi mở trang có thể chọn
+**Tiếp tục vào trợ lý**. Lựa chọn chỉ ghi nhận đã xem/bỏ qua lời giới thiệu theo
+thiết bị trong `runtime/setup-preferences.json`, không ghi nhận đã bật quyền
+và không cấp phép đọc báo cáo. Bản này chưa tự đọc thống kê hay học thói quen.
+
+Màn hình chính gồm phiên giọng nói và kết quả. **Dừng** chỉ xuất hiện khi đang
+chạy. **Công cụ** chứa kiểm tra kết nối, danh mục app, số lượt, Đọc màn hình và
+kết quả local. **Cá nhân hóa** mở lại lời giới thiệu Thời gian sử dụng.
+
 **Chuyển tab bằng giọng nói:** mở Đồng hồ trên iPhone, bấm **Bắt đầu**, rồi nói
 “chuyển sang Bấm giờ”, “chuyển sang Báo thức”, “chuyển sang Hẹn giờ” hoặc
 “chuyển sang Giờ quốc tế”. Cũng nhận yêu cầu tiếng Anh như “switch to Stopwatch”.
@@ -73,7 +91,7 @@ con nhưng thiếu nhãn riêng vẫn bị bỏ qua. Tiêu đề trang ưu tiên
 duy nhất trong thanh điều hướng thay vì mã nội bộ của thanh.
 
 **Đọc màn hình:** mở trang muốn xem trên iPhone, giữ màn hình sáng rồi bấm
-**Đọc màn hình** ở cột kết quả. App hiển thị tên ứng dụng, tiêu đề trang nếu có,
+**Đọc màn hình** trong **Công cụ**. App hiển thị tên ứng dụng, tiêu đề trang nếu có,
 nội dung và các nút/ô nhập mà WDA đọc được. Chức năng này chỉ quan sát, chưa
 bấm nút hoặc thực hiện tác vụ bên trong app. Không cần microphone hay key để đọc local.
 
@@ -385,7 +403,7 @@ Tính đến 18/11/2026:
   `steps_attempted=2`, `steps_acknowledged=2`, `error_code=null`; người dùng xác
   nhận hoạt động tốt. Đã kiểm chứng giọng nói → AI → launch/click → AI xác minh.
   Không suy ra hai lượt thuộc cùng một phiên vì bản ghi chưa có session ID.
-- 131 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
+- 137 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
 - Luồng AI chọn mục trên máy thật đã mở Pin trong Cài đặt và Music trong App
   Store, xác minh bằng tiêu đề đích. Màn hình Tệp đã thử không có mục đủ điều
   kiện nên không thao tác. Một lần bấm Cài đặt chung chưa chuyển trang và được
