@@ -27,16 +27,18 @@ direct_cli (auto hoặc debug)
 | `wda.py` | HTTP một lần qua tunnel loopback; chọn phần tử bằng identifier và kiểm tra lại trước click. |
 | `screen_reader.py` | Đọc cấu trúc giao diện local; mô tả ảnh qua AI chỉ khi người dùng bật tùy chọn. |
 | `screen_navigation.py` | Tìm tab hoặc nút Back native hiện tại; một lần bấm, kiểm tra lại cấu trúc và foreground, không retry. |
+| `screen_scroll.py` | Một lần cuộn dọc; yêu cầu một vùng cuộn native và xác minh chuyển động của phần tử trong cùng app. |
 | `speech.py` | Thu thủ công trong debug, gửi WAV đến Deepgram. |
 | `endpoint.py` | Thu auto, kết thúc theo âm lượng/im lặng, timeout và giới hạn thời lượng. |
-| `intent.py` | Schema/validation và client AI Gateway: open_app, select_target, select_tab, go_back, stop. |
+| `intent.py` | Schema/validation và client AI Gateway: open_app, select_target, select_tab, go_back, scroll, stop. |
 | `vision.py` | Kiểm tra PNG, gửi ảnh, kiểm tra schema và tính nhất quán của kết luận. |
 | `verification.py` | Prompt đánh giá màn hình sau thao tác; không thao tác thiết bị. |
 
 `DIRECT_PROMPT` nằm tại CLI và được truyền rõ cho intent. Prompt xác minh được
 truyền từ verification sang vision. Không còn prompt mặc định cho khả năng cũ.
 Schema intent giữ `direction="none"` để bảo toàn cấu trúc phản hồi hiện tại;
-không có thao tác vuốt/hướng di chuyển.
+scroll đặt hướng up/down trong value, được chuyển thành arguments.direction;
+không có thao tác vuốt ngang hoặc cuộn nhiều bước.
 
 ## Bộ thực thi
 

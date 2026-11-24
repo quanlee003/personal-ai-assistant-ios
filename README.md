@@ -35,7 +35,16 @@ Back/Quay lại/Trở lại hoặc định danh `BackButton` trong thanh điều
 Nếu không có nhãn/định danh trên, app không đoán từ icon hoặc nút Đóng. App kiểm tra tiêu đề
 trang thay đổi trong cùng ứng dụng sau một lần bấm; đây là bằng chứng điều
 hướng, không xác nhận nội dung cụ thể của trang đích. Nếu tiêu đề không đổi,
-kết quả là chưa xác minh và app không bấm lại. Chưa hỗ trợ vuốt quay lại/cuộn.
+kết quả là chưa xác minh và app không bấm lại. Chưa hỗ trợ vuốt quay lại.
+
+**Cuộn:** nói “cuộn xuống”, “cuộn lên”, “scroll down” hoặc “scroll up”. Mỗi yêu
+cầu cuộn một lần trong app đang mở, không cần đọc màn hình trước. App yêu cầu
+đúng một vùng cuộn native có đủ phần tử để kiểm tra; trang có nhiều vùng cuộn,
+WebView hoặc giao diện tùy biến có thể chưa được hỗ trợ. Sau cuộn, ít nhất hai
+phần tử phải dịch chuyển đúng chiều để xác minh. Ở đầu/cuối trang hoặc khi không
+đủ bằng chứng, app báo chưa xác minh và không tự cuộn tiếp. Không hỗ trợ cuộn
+đến mục cụ thể, cuộn hết trang, vuốt ngang hoặc chuỗi nhiều thao tác. Không gửi
+ảnh/nội dung giao diện lên AI cho thao tác cuộn.
 
 Sau khi cập nhật code, đóng và mở lại cửa sổ PC để nạp lệnh mới.
 
@@ -352,7 +361,9 @@ Tính đến 18/11/2026:
   `steps_attempted=2`, `steps_acknowledged=2`, `error_code=null`; người dùng xác
   nhận hoạt động tốt. Đã kiểm chứng giọng nói → AI → launch/click → AI xác minh.
   Không suy ra hai lượt thuộc cùng một phiên vì bản ghi chưa có session ID.
-- 104 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
+- 114 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
+- Người dùng xác nhận giọng nói chuyển tab App Store và quay lại đã thành công.
+- Lệnh cuộn đã qua kiểm thử tự động; chưa kiểm thử cuộn trên iPhone thật.
 - Mở rộng tab theo tên và quay lại đã qua kiểm thử tự động; AI Gateway thực tế
   nhận đúng “switch to tab Search” và “go back”. Trên iPhone thật đã xác minh
   chuyển sang Bấm giờ trong Đồng hồ, Tìm kiếm/Today trong App Store và quay lại
