@@ -6,7 +6,7 @@ Chế độ tự động không yêu cầu Enter, sửa câu hay xác nhận `y`
 
 **Bản hiện tại hỗ trợ mở app đã cài theo tên và mở phần Pin trong Cài đặt.**
 Ví dụ: “mở Zalo”, “mở Safari”, “mở Đồng hồ”. Chỉ mở app, chưa thao tác bên trong
-app khác hoặc tự lập kế hoạch nhiều bước, ngoài chuyển tab Đồng hồ mô tả bên dưới. Tác vụ Pin không đổi tùy chọn. Đây là bản thử nghiệm
+app khác ngoài chuyển tab/quay lại có giới hạn mô tả bên dưới; chưa tự lập kế hoạch nhiều bước. Tác vụ Pin không đổi tùy chọn. Đây là bản thử nghiệm
 dùng PC kết nối iPhone, chưa phải ứng dụng độc lập cài từ App Store.
 
 ## 1. Dùng ngay trên máy đã thiết lập
@@ -18,10 +18,25 @@ dùng PC kết nối iPhone, chưa phải ứng dụng độc lập cài từ Ap
 “chuyển sang Giờ quốc tế”. Cũng nhận yêu cầu tiếng Anh như “switch to Stopwatch”.
 Không cần bấm Đọc màn hình trước: mỗi lệnh tự đọc giao diện hiện tại để tìm tab.
 App chỉ bấm một lần rồi kiểm tra tab được chọn; tab đã mở thì không bấm lại.
-Không tạo/sửa báo thức hoặc chạy bộ đếm. Nếu đang ở app khác, không thấy tab,
+Không tạo/sửa báo thức hoặc chạy bộ đếm. Nếu không thấy tab phù hợp,
 hoặc chưa xác minh được kết quả, app dừng và không tự gửi lại lần bấm.
 Thao tác này dùng cấu trúc giao diện local, không chụp/gửi ảnh; giọng nói và câu
 yêu cầu vẫn dùng Deepgram/AI Gateway như các lệnh mở app.
+
+**Tab trong app khác:** nói “chuyển sang tab Tìm kiếm” hoặc “switch to tab Search”,
+dùng đúng tên tab đang hiển thị. App đối chiếu tên trong thanh tab native iOS,
+không bấm nút bất kỳ có cùng chữ và không tự mở ứng dụng khác. Tên tab Đồng hồ
+vẫn có alias Việt/Anh; các tab khác chưa tự dịch tên. Tab vẽ tùy biến/WebView
+có thể chưa được nhận diện; không có bảo đảm hỗ trợ mọi app.
+
+**Quay lại:** nói “quay lại” hoặc “go back”. Hiện chỉ bấm khi có đúng một nút
+Back/Quay lại/Trở lại trong thanh điều hướng native. Nút mang tên trang trước,
+chỉ có icon hoặc nút Đóng chưa được suy đoán thành Back. App kiểm tra tiêu đề
+trang thay đổi trong cùng ứng dụng sau một lần bấm; đây là bằng chứng điều
+hướng, không xác nhận nội dung cụ thể của trang đích. Nếu tiêu đề không đổi,
+kết quả là chưa xác minh và app không bấm lại. Chưa hỗ trợ vuốt quay lại/cuộn.
+
+Sau khi cập nhật code, đóng và mở lại cửa sổ PC để nạp lệnh mới.
 
 **Đọc màn hình:** mở trang muốn xem trên iPhone, giữ màn hình sáng rồi bấm
 **Đọc màn hình** ở cột kết quả. App hiển thị tên ứng dụng, tiêu đề trang nếu có,
@@ -336,7 +351,10 @@ Tính đến 18/11/2026:
   `steps_attempted=2`, `steps_acknowledged=2`, `error_code=null`; người dùng xác
   nhận hoạt động tốt. Đã kiểm chứng giọng nói → AI → launch/click → AI xác minh.
   Không suy ra hai lượt thuộc cùng một phiên vì bản ghi chưa có session ID.
-- 92 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
+- 103 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
+- Mở rộng tab theo tên và quay lại đã qua kiểm thử tự động; AI Gateway thực tế
+  nhận đúng “switch to tab Search” và “go back”. Chưa kiểm thử thao tác mở rộng
+  trên app khác bằng iPhone thật; các kết quả Đồng hồ bên dưới thuộc bản trước.
 - Đã đọc local màn hình Đồng hồ / Báo thức trên iPhone thật, nhận diện 13 thành
   phần giao diện. Phần mô tả bằng AI được kiểm thử bằng mock, chưa thử cloud thực tế.
 - Đã kiểm thử chuyển cả bốn tab Đồng hồ trên iPhone thật: mỗi

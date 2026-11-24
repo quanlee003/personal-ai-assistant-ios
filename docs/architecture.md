@@ -25,9 +25,11 @@ direct_cli (auto hoặc debug)
 | `commands.py` | Kiểu Command, chuẩn hóa tiếng Việt, parser mở app/dừng. |
 | `direct.py` | Parser Pin, whitelist tác vụ, ActionResult, quy trình tối đa hai bước. |
 | `wda.py` | HTTP một lần qua tunnel loopback; chọn phần tử bằng identifier và kiểm tra lại trước click. |
+| `screen_reader.py` | Đọc cấu trúc giao diện local; mô tả ảnh qua AI chỉ khi người dùng bật tùy chọn. |
+| `screen_navigation.py` | Tìm tab hoặc nút Back native hiện tại; một lần bấm, kiểm tra lại cấu trúc và foreground, không retry. |
 | `speech.py` | Thu thủ công trong debug, gửi WAV đến Deepgram. |
 | `endpoint.py` | Thu auto, kết thúc theo âm lượng/im lặng, timeout và giới hạn thời lượng. |
-| `intent.py` | Schema/validation và client AI Gateway; chỉ open_app, select_target, stop. |
+| `intent.py` | Schema/validation và client AI Gateway: open_app, select_target, select_tab, go_back, stop. |
 | `vision.py` | Kiểm tra PNG, gửi ảnh, kiểm tra schema và tính nhất quán của kết luận. |
 | `verification.py` | Prompt đánh giá màn hình sau thao tác; không thao tác thiết bị. |
 
@@ -54,7 +56,13 @@ Kết quả ghi bundle đích, bundle quan sát và phương pháp xác minh; ti
 - Không retry thao tác hoặc cloud request. Timeout sau khi bắt đầu là kết quả
   chưa rõ, không được chuyển thành thành công hoặc tự gửi lại.
 
-API trả lời chỉ là acknowledged. `verified_match` cần kết luận ảnh phù hợp.
+API trả lời chỉ là acknowledged. `verified_match` dựa trên phương pháp của tác vụ:
+ảnh với Cài đặt/Pin, foreground bundle khi mở app, selected tab khi chuyển tab,
+hoặc tiêu đề navigation thay đổi trong cùng app khi quay lại. Kiểm tra tiêu đề
+không chứng minh nội dung trang đích. Điều hướng không gửi cấu trúc UI lên AI.
+Tab chỉ lấy button trong TabBar; Back chỉ nhận nhãn Back/Quay lại/Trở lại trong
+NavigationBar. Không suy đoán từ tọa độ, nút Đóng hoặc tên trang trước. XPath
+escape tên quan sát được, không chèn trực tiếp yêu cầu model vào selector.
 `steps_attempted` đếm bước đã bắt đầu, kể cả bị guard chặn trước khi gửi;
 `steps_acknowledged` đếm bước được WDA phản hồi. Không suy ra toàn bộ quy trình
 thành công chỉ từ `action_acknowledged=true`.
