@@ -26,6 +26,7 @@ class ModelIntent(BaseModel):
         "open_app",
         "select_target",
         "select_tab",
+        "go_back",
         "stop",
     ]
 
@@ -86,7 +87,7 @@ def validate_intent(item: ModelIntent) -> IntentResult:
             {argument_name: item.value},
         )
 
-    elif item.action == "stop":
+    elif item.action in {"stop", "go_back"}:
         if item.direction != "none" or item.value != "":
             raise IntentError(
                 "Model trả hành động có tham số thừa."

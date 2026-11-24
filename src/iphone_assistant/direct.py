@@ -15,11 +15,19 @@ def is_battery(command: Command | None) -> bool:
 
 
 def parse_direct_command(request: str) -> Command:
+    if normalize(request) in {'quay lai', 'tro lai', 'go back', 'back'}:
+        return Command('go_back')
     from .screen_navigation import TABS
     for target, names in TABS.items():
         if normalize(request) in {prefix + normalize(name) for name in names
                                   for prefix in ('chuyen sang ', 'chuyen tab ', 'mo tab ', 'switch to ')}:
             return Command('select_tab', {'target': target})
+    for prefix in ('chuyen sang tab ', 'chuyen tab ', 'mo tab ', 'switch to tab '):
+        if normalize(request).startswith(prefix):
+            name = ' '.join(request.split()[len(prefix.split()):])
+            if name and not any(mark in name for mark in (';', '\n')) and not any(
+                    word in normalize(name).split() for word in ('roi', 'then')):
+                return Command('select_tab', {'target': name})
     if normalize(request) in {'mo pin', 'mo muc pin', 'mo phan pin', 'mo pin trong cai dat',
                                'mo muc pin trong cai dat', 'mo phan pin trong cai dat'}:
         return Command('select_target', {'target': BATTERY_TARGET})
