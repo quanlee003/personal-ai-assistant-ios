@@ -16,7 +16,11 @@ Hỗ trợ open_app với value là tên ứng dụng người dùng muốn mở
 hoặc select_target với value="settings.battery" để mở trang Pin trong Cài đặt.
 Ví dụ "mở phần Pin trong Cài đặt", "mở mục Pin", "mở Pin": select_target settings.battery.
 Chỉ được xem trang Pin, không bật/tắt phần trăm pin, tiết kiệm pin, sạc hay đổi tùy chọn.
-Chỉ mở ứng dụng, không thực hiện việc bên trong app. Không hỗ trợ chạm tùy ý hoặc ghép nhiều yêu cầu.
+Ngoài mở app, hỗ trợ select_tab để chuyển tab trong Đồng hồ đang mở:
+value world_clock (Giờ quốc tế/World Clock), alarms (Báo thức/Alarms),
+stopwatch (Bấm giờ/Stopwatch), timers (Hẹn giờ/Timers).
+Ví dụ "chuyển sang Bấm giờ", "switch to Timers": select_tab.
+Không tạo/sửa báo thức, không bắt đầu/dừng bộ đếm. Không hỗ trợ chạm tùy ý hoặc ghép nhiều yêu cầu.
 Giữ nguyên tên app được nhắc đến, không đoán tên hoặc bundle ID. Danh sách app sẽ được đối chiếu local.
 Yêu cầu mở trang Pin là một tác vụ cố định được hỗ trợ. Các yêu cầu nhiều bước
 khác hoặc kèm đổi tùy chọn phải decision="unsupported"; không bỏ bớt phần yêu cầu.
@@ -87,6 +91,15 @@ def run_turn(args, request=None, *, stop_event=None, on_event=None):
                 command = parse_direct_command(request)
             except UnsupportedCommand:
                 command = None
+        if command is not None and command.action == 'select_tab':
+            if set(command.arguments) != {'target'}:
+                return ActionResult('needs_clarification', 'Chưa xác định tab cần mở.')
+            if args.execute and not automatic:
+                if input('Nhập y để chuyển tab; Enter để hủy: ').strip().casefold() != 'y':
+                    return ActionResult('canceled', 'Đã hủy trước khi chuyển tab.')
+            from .screen_navigation import navigate_tab
+            return navigate_tab(command.arguments['target'], stop_event=stop_event,
+                                on_event=on_event, dry_run=not args.execute)
         if (command is not None and command.action == 'open_app'
                 and set(command.arguments) == {'app_name'}
                 and normalize(command.arguments['app_name']) not in {'cai dat', 'settings'}):

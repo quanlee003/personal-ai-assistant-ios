@@ -25,6 +25,7 @@ class ModelIntent(BaseModel):
         "none",
         "open_app",
         "select_target",
+        "select_tab",
         "stop",
     ]
 
@@ -65,7 +66,7 @@ def validate_intent(item: ModelIntent) -> IntentResult:
             "Kết quả hành động có trường message không hợp lệ."
         )
 
-    if item.action in {"open_app", "select_target"}:
+    if item.action in {"open_app", "select_target", "select_tab"}:
         if (
             item.direction != "none"
             or not item.value.strip()
@@ -77,6 +78,7 @@ def validate_intent(item: ModelIntent) -> IntentResult:
         argument_name = {
             "open_app": "app_name",
             "select_target": "target",
+            "select_tab": "target",
         }[item.action]
 
         command = Command(
