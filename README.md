@@ -363,7 +363,10 @@ Tính đến 18/11/2026:
   Không suy ra hai lượt thuộc cùng một phiên vì bản ghi chưa có session ID.
 - 114 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
 - Người dùng xác nhận giọng nói chuyển tab App Store và quay lại đã thành công.
-- Lệnh cuộn đã qua kiểm thử tự động; chưa kiểm thử cuộn trên iPhone thật.
+- Đã thử cuộn xuống rồi lên trong Cài đặt trên iPhone thật: cả hai lượt đạt
+  `verified_match` bằng `visible_element_movement`, mỗi lượt gửi đúng một lần
+  cuộn và nhận phản hồi. Kiểm thử gọi bằng code; chưa thử microphone cho lệnh
+  cuộn và chưa suy rộng sang app khác.
 - Mở rộng tab theo tên và quay lại đã qua kiểm thử tự động; AI Gateway thực tế
   nhận đúng “switch to tab Search” và “go back”. Trên iPhone thật đã xác minh
   chuyển sang Bấm giờ trong Đồng hồ, Tìm kiếm/Today trong App Store và quay lại
