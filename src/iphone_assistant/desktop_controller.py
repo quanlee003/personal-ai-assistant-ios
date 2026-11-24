@@ -43,7 +43,9 @@ def check_readiness(stop_event=None):
         backend = WDABackend()
         backend.stop_event = stop_event
         phone = backend.ready()
-        phone_message = 'iPhone đã kết nối' if phone else 'iPhone chưa sẵn sàng'
+        locked = backend.request('GET', '/wda/locked')['value'] if phone else None
+        phone = phone and locked is False
+        phone_message = 'iPhone đã kết nối và mở khóa' if phone else 'Mở khóa iPhone và kiểm tra kết nối điều khiển.'
     except RunCanceled:
         raise
     except Exception:

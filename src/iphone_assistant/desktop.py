@@ -10,6 +10,7 @@ from .desktop_controller import DesktopController
 from .direct_cli import PROJECT_ROOT
 from .device_catalog import MESSAGES
 from .screen_reader import describe_report
+from .onboarding import SetupPreferences, setup_step
 
 BG = '#F3F5F6'
 INK = '#192D38'
@@ -29,7 +30,7 @@ RESULT_TITLES = {
 
 
 class DesktopApp:
-    def __init__(self, root, controller=None):
+    def __init__(self, root, controller=None, preferences=None):
         self.root = root
         self.controller = controller or DesktopController()
         self.readiness = None
@@ -38,6 +39,9 @@ class DesktopApp:
         self.last_record = None
         self.catalog_data = None
         self.catalog_window = None
+        self.preferences = preferences or SetupPreferences()
+        self.setup_notice = ''
+        self.forced_personalization = False
         self.root.title('Trợ lý iPhone')
         self.root.geometry('1100x700')
         self.root.minsize(980, 680)
@@ -72,17 +76,39 @@ class DesktopApp:
         header.pack(fill='x', padx=24, pady=(16, 10))
         self._label(header, 'Trợ lý iPhone', 20, bold=True).pack(side='left')
         ttk.Button(header, text='Hướng dẫn', command=self.open_guide).pack(side='right')
+        ttk.Button(header, text='Công cụ', command=self.show_tools).pack(side='right', padx=8)
+        ttk.Button(header, text='Cá nhân hóa', command=self.show_personalization).pack(side='right')
         self._label(self.root, 'Nói yêu cầu trên PC. Theo dõi thao tác trên iPhone.', color=MUTED).pack(
             anchor='w', padx=24, pady=(0, 16))
 
-        body = tk.Frame(self.root, bg=BG)
+        self.setup_frame = tk.Frame(self.root, bg='white', padx=32, pady=28)
+        self.setup_title = self._label(self.setup_frame, 'Đang kiểm tra kết nối', 20, bold=True, wraplength=800)
+        self.setup_title.pack(fill='x', pady=(0, 18))
+        self.setup_detail = self._label(self.setup_frame, '', 12, MUTED, wraplength=800)
+        self.setup_detail.pack(fill='x', pady=(0, 20))
+        self.setup_action = ttk.Button(self.setup_frame, text='Kiểm tra lại', style='Primary.TButton', command=self.setup_next)
+        self.setup_action.pack(anchor='w', pady=8)
+        self.setup_continue = ttk.Button(self.setup_frame, text='Tiếp tục vào trợ lý', command=self.finish_setup)
+        self.setup_continue.pack(anchor='w', pady=8)
+        self.setup_later = ttk.Button(self.setup_frame, text='Để sau', command=self.finish_setup)
+        self.setup_later.pack(anchor='w', pady=8)
+        self.setup_stop = ttk.Button(self.setup_frame, text='Dừng', command=self.stop)
+        self.setup_feedback = self._label(self.setup_frame, '', 11, MUTED, wraplength=800)
+        self.setup_feedback.pack(fill='x', pady=12)
+        self.tools_window = tk.Toplevel(self.root)
+        self.tools_window.title('Công cụ kiểm thử')
+        self.tools_window.geometry('480x760')
+        self.tools_window.configure(bg=BG)
+        self.tools_window.protocol('WM_DELETE_WINDOW', self.tools_window.withdraw)
+        self.tools_window.withdraw()
+        body = self.main_body = tk.Frame(self.root, bg=BG)
         body.pack(fill='both', expand=True, padx=24)
-        body.columnconfigure(0, weight=0, minsize=220)
+        body.columnconfigure(0, weight=0, minsize=0)
         body.columnconfigure(1, weight=1, minsize=290)
         body.columnconfigure(2, weight=1, minsize=290)
         body.rowconfigure(0, weight=1)
-        left = tk.Frame(body, bg=BG, padx=0)
-        left.grid(row=0, column=0, sticky='nsew', padx=(0, 20))
+        left = tk.Frame(self.tools_window, bg=BG, padx=20, pady=12)
+        left.pack(fill='both', expand=True)
         middle = tk.Frame(body, bg='white', padx=16, pady=16)
         middle.grid(row=0, column=1, sticky='nsew', padx=(0, 16))
         right = tk.Frame(body, bg='white', padx=16, pady=16)
@@ -108,11 +134,11 @@ class DesktopApp:
         self.phase.pack(anchor='w', fill='x')
         self.message = self._label(middle, 'Đang kiểm tra kết nối…', 11, MUTED, wraplength=280)
         self.message.pack(anchor='w', fill='x', pady=(8, 12))
-        self._label(middle, 'Số lượt trong phiên', 10).pack(anchor='w')
-        self.turn_count = ttk.Combobox(middle, values=('1', '2', '5', '10'), state='readonly', width=6)
+        self._label(left, 'Số lượt trong phiên', 10).pack(anchor='w')
+        self.turn_count = ttk.Combobox(left, values=('1', '2', '5', '10'), state='readonly', width=6)
         self.turn_count.set('1')
         self.turn_count.pack(anchor='w', pady=(6, 12))
-        self.start_button = ttk.Button(middle, text='Bắt đầu', style='Primary.TButton', command=self.start)
+        self.start_button = ttk.Button(middle, text='Bắt đầu nói', style='Primary.TButton', command=self.start)
         self.start_button.pack(fill='x')
         self.stop_button = ttk.Button(middle, text='Dừng', command=self.stop)
         self.stop_button.pack(fill='x', pady=(8, 12))
@@ -123,10 +149,10 @@ class DesktopApp:
                     10, MUTED, wraplength=280).pack(anchor='w', pady=(10, 0))
 
         self._label(right, 'Kết quả gần nhất', 14, bold=True).pack(anchor='w')
-        self.read_button = ttk.Button(right, text='Đọc màn hình', command=self.read_screen)
+        self.read_button = ttk.Button(left, text='Đọc màn hình', command=self.read_screen)
         self.read_button.pack(fill='x', pady=(12, 4))
         self.screen_ai = tk.BooleanVar(value=False)
-        self.screen_ai_check = tk.Checkbutton(right, text='Gửi ảnh tới AI Gateway để mô tả',
+        self.screen_ai_check = tk.Checkbutton(left, text='Gửi ảnh tới AI Gateway để mô tả',
                                              variable=self.screen_ai, bg='white', fg=INK,
                                              font=('Segoe UI', 9), wraplength=240, anchor='w', justify='left')
         self.screen_ai_check.pack(anchor='w')
@@ -142,7 +168,7 @@ class DesktopApp:
         scroll.pack(side='right', fill='y')
         self.result_text.pack(side='left', fill='both', expand=True)
         self._set_result('Sau khi bạn nói, câu nhận dạng và kết quả kiểm tra sẽ hiện ở đây.')
-        self.record_button = ttk.Button(right, text='Mở kết quả local', command=self.open_result)
+        self.record_button = ttk.Button(left, text='Mở kết quả local', command=self.open_result)
         self.record_button.pack(fill='x', pady=(16, 0))
         self.record_button.state(['disabled'])
         self._label(self.root,
@@ -151,6 +177,70 @@ class DesktopApp:
         for frame in (middle, right):
             frame.bind('<Configure>', lambda e, f=frame: self._wrap(f))
         self._controls(True)
+
+    def show_tools(self):
+        self.tools_window.deiconify()
+        self.tools_window.lift()
+
+    def show_personalization(self):
+        self.forced_personalization = True
+        self.setup_notice = ''
+        self._render_setup()
+
+    def _render_setup(self):
+        step = setup_step(self.readiness, self.catalog_data, self.preferences.dismissed)
+        if step == 'ready' and self.forced_personalization:
+            step = 'personalization'
+        self.current_setup_step = step
+        if step == 'ready':
+            self.setup_frame.pack_forget()
+            self.main_body.pack(fill='both', expand=True, padx=24)
+            return
+        self.main_body.pack_forget()
+        self.setup_frame.pack(fill='both', expand=True, padx=24, pady=(0, 16))
+        title, detail, action = {
+            'checking': ('Đang kiểm tra kết nối', 'Kết nối iPhone bằng USB và giữ máy mở khóa. Trợ lý sẽ kiểm tra các điều kiện để bắt đầu.', 'Kiểm tra lại'),
+            'connection': ('Kết nối iPhone', MESSAGES.get((self.catalog_data or {}).get('status'), 'Chưa đọc được iPhone. Kết nối USB, mở khóa và chọn Tin cậy khi iOS hỏi.'), 'Kiểm tra lại'),
+            'phone': ('Chuẩn bị điều khiển iPhone', 'Đã đọc được thiết bị nhưng kết nối điều khiển chưa sẵn sàng. Giữ iPhone mở khóa và khởi chạy WDA.\n\nNếu chưa thiết lập: trên iPhone vào Cài đặt → Quyền riêng tư & Bảo mật → Chế độ nhà phát triển. Làm theo yêu cầu trên iPhone và hướng dẫn thiết lập.\n\nChưa thể tự mở trang khi WDA chưa hoạt động. App chưa xác định riêng trạng thái từng quyền.', 'Xem hướng dẫn thiết lập'),
+            'microphone': ('Chuẩn bị microphone', 'Chọn microphone đầu vào trên Windows và cho phép ứng dụng desktop dùng microphone. App sẽ kiểm tra lại tự động; bước này chưa thu âm.', 'Mở cài đặt microphone'),
+            'services': ('Kết nối dịch vụ AI', 'Chưa có đủ cấu hình dịch vụ nhận giọng nói và AI. Làm theo phần cấu hình trong hướng dẫn; app sẽ kiểm tra lại tự động. Việc có cấu hình chưa xác nhận key hợp lệ.', 'Mở hướng dẫn cấu hình'),
+            'personalization': ('Giúp AI hiểu thói quen của bạn', 'Khuyên dùng · Không bắt buộc\n\nBật Thời gian sử dụng để chuẩn bị dữ liệu về những ứng dụng bạn thường dùng. Khi tính năng đọc báo cáo được triển khai và bạn cho phép, thông tin này sẽ giúp AI đề xuất hỗ trợ phù hợp và ưu tiên học app của bạn.\n\nBản hiện tại chỉ mở trang thiết lập, chưa đọc báo cáo hay nhận biết thói quen. Bật trên iPhone không đồng nghĩa cho trợ lý thu thập hoặc chia sẻ dữ liệu.', 'Mở Thời gian sử dụng'),
+        }[step]
+        self.setup_title.configure(text=title)
+        self.setup_detail.configure(text=detail)
+        self.setup_action.configure(text=action)
+        self.setup_feedback.configure(text=self.setup_notice)
+        self.setup_continue.pack_forget()
+        self.setup_later.pack_forget()
+        if step == 'personalization':
+            if self.setup_notice:
+                self.setup_continue.pack(anchor='w', pady=8, before=self.setup_feedback)
+            self.setup_later.pack(anchor='w', pady=8, before=self.setup_feedback)
+
+    def setup_next(self):
+        step = self.current_setup_step
+        if step == 'personalization':
+            self.setup_notice = 'Đang mở trang trên iPhone. Bạn tự quyết định bật; chưa có dữ liệu báo cáo nào được thu thập.'
+            self.open_phone_setup()
+        elif step == 'microphone':
+            self._open('ms-settings:privacy-microphone')
+        elif step in {'phone', 'services'}:
+            self.open_guide()
+        else:
+            self.refresh()
+
+    def finish_setup(self):
+        key = (self.catalog_data or {}).get('device_key')
+        if not key or not (self.readiness and self.readiness.ready):
+            return
+        try:
+            self.preferences.finish(key)
+        except OSError:
+            self.setup_notice = 'Chưa lưu được lựa chọn trên PC. Kiểm tra quyền ghi thư mục runtime rồi thử lại.'
+        else:
+            self.forced_personalization = False
+            self.setup_notice = ''
+        self._render_setup()
 
     def _wrap(self, frame):
         for child in frame.winfo_children():
@@ -164,6 +254,14 @@ class DesktopApp:
         self.result_text.configure(state='disabled')
 
     def _controls(self, busy):
+        self._render_setup()
+        for button in (self.setup_action, self.setup_continue, self.setup_later):
+            button.state(['disabled'] if busy else ['!disabled'])
+        if busy:
+            self.setup_stop.pack(anchor='w', pady=8)
+        else:
+            self.setup_stop.pack_forget()
+        self.setup_stop.state(['disabled'] if self.stopping else ['!disabled'])
         self.read_button.state(['disabled'] if busy or not (self.readiness and self.readiness.phone) else ['!disabled'])
         self.screen_ai_check.configure(state='disabled' if busy else 'normal')
         if self.catalog_window and self.catalog_window.winfo_exists():
@@ -173,6 +271,10 @@ class DesktopApp:
         self.start_button.state(['disabled'] if busy or not (self.readiness and self.readiness.ready) else ['!disabled'])
         self.refresh_button.state(['disabled'] if busy else ['!disabled'])
         self.stop_button.state(['!disabled'] if busy and not self.stopping else ['disabled'])
+        if busy:
+            self.stop_button.pack(fill='x', pady=(8, 12), after=self.start_button)
+        else:
+            self.stop_button.pack_forget()
         self.turn_count.configure(state='disabled' if busy else 'readonly')
 
     def refresh(self):
@@ -191,7 +293,8 @@ class DesktopApp:
 
     def _auto_scan(self):
         if not self.closing and not self.controller.busy:
-            if self.controller.scan(force=False):
+            if (self.controller.refresh() if self.current_setup_step != 'ready' and self.current_setup_step != 'personalization'
+                    else self.controller.scan(force=False)):
                 self._controls(True)
         if not self.closing:
             self.root.after(12000, self._auto_scan)
@@ -345,6 +448,8 @@ class DesktopApp:
                 self.catalog_status.configure(text='Đang kiểm tra và quét thiết bị…')
             return
         if kind == 'setup_result':
+            self.setup_notice = value
+            self._render_setup()
             if self.catalog_window and self.catalog_window.winfo_exists():
                 self.setup_message.configure(text=value)
             return
@@ -353,7 +458,7 @@ class DesktopApp:
             self._controls(False)
             if value == 'setup':
                 self.phase.configure(text='Đã kết thúc kiểm tra')
-                self.message.configure(text='Xem hướng dẫn trong Ứng dụng & thiết lập.')
+                self.message.configure(text='Trang thiết lập đã được kiểm tra. Chưa đọc báo cáo sử dụng.')
             return
         phases = {'checking': 'Đang kiểm tra', 'listening': 'Đang nghe',
                   'transcribing': 'Nhận dạng lời nói', 'understanding': 'Đang hiểu yêu cầu',
@@ -395,8 +500,8 @@ class DesktopApp:
             ready = self.readiness and self.readiness.ready
             title, message = {
                 'checked': ('Sẵn sàng' if ready else 'Chưa sẵn sàng',
-                            'Bấm Bắt đầu, rồi nói yêu cầu.' if ready else 'Kiểm tra các mục ở bên trái rồi bấm Kiểm tra lại.'),
-                'not_ready': ('Chưa sẵn sàng', 'Kiểm tra các mục ở bên trái rồi thử lại.'),
+                            'iPhone đã kết nối. Bấm Bắt đầu nói để gửi yêu cầu.' if ready else 'Làm theo bước thiết lập đang hiển thị.'),
+                'not_ready': ('Chưa sẵn sàng', 'Làm theo bước thiết lập đang hiển thị rồi thử lại.'),
                 'complete': ('Đã kết thúc phiên', 'Xem kết quả bên phải. Bấm Bắt đầu để nói yêu cầu mới.'),
                 'canceled': ('Đã dừng phiên', 'Microphone đã đóng. Xem kết quả nếu lệnh đã được gửi.'),
                 'halted': ('Phiên đã dừng', 'Xem kết quả trước khi bắt đầu lại. Không tự gửi lại lệnh.'),

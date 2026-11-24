@@ -33,8 +33,11 @@ class DesktopTests(unittest.TestCase):
                 'iphone_assistant.desktop_controller.WDABackend') as backend, patch.dict(
                 'os.environ', {'DEEPGRAM_API_KEY': 'test', 'AI_GATEWAY_API_KEY': 'test'}):
             backend.return_value.ready.return_value = True
+            backend.return_value.request.return_value = {'value': False}
             self.assertTrue(check_readiness().ready)
             stream.assert_not_called()
+            backend.return_value.request.return_value = {'value': True}
+            self.assertFalse(check_readiness().phone)
 
     def test_missing_prerequisite_prevents_runner(self):
         runner = Mock()
