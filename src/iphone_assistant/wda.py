@@ -55,6 +55,12 @@ class WDABackend:
     def open_settings(self):
         self.open_app('com.apple.Preferences')
 
+    def observe_current_app(self):
+        # No bundleId or URL: attach to the foreground, do not launch an app.
+        result = self.request('POST', '/session', {'capabilities': {'alwaysMatch': {
+            'shouldTerminateApp': False}}})
+        self.session_id = result.get('sessionId') or result.get('value', {}).get('sessionId')
+
     def open_app(self, bundle_id):
         self.session_id = None
         self._battery_element = None

@@ -150,6 +150,20 @@ class DesktopWidgetTests(unittest.TestCase):
         self.assertIsNone(self.app.last_record)
         self.assertIn('disabled', self.app.record_button.state())
 
+    def test_screen_read_is_explicit_local_default_and_clears_old_result(self):
+        self.controller.read_screen.assert_not_called()
+        self.app._event('readiness', READY)
+        self.app._event('finished', 'checked')
+        self.app._event('record', 'old/result.json')
+        self.app.read_button.invoke()
+        self.controller.read_screen.assert_called_once_with(use_ai=False)
+        self.assertIn('disabled', self.app.start_button.state())
+        self.assertIsNone(self.app.last_record)
+        self.app._event('screen_report', {'status': 'unavailable', 'message': 'Phone locked'})
+        self.assertIn('Phone locked', self.app.result_text.get('1.0', 'end'))
+        self.app._event('finished', 'screen_read')
+        self.assertNotIn('disabled', self.app.read_button.state())
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -10,6 +10,7 @@ from .direct_cli import run_logged_turn
 from .wda import WDABackend
 from .device_catalog import DeviceCatalog
 from .phone_setup import open_screen_time
+from .screen_reader import read_screen
 
 
 @dataclass(frozen=True)
@@ -110,6 +111,18 @@ class DesktopController:
                 self.emit('catalog_scanning', None)
             self.emit('catalog', self.catalog.refresh(self._stop, force=force))
             return 'scanned'
+        return self._launch(work)
+
+    def read_screen(self, use_ai=False):
+        def work():
+            try:
+                report = read_screen(use_ai=use_ai, stop_event=self._stop, on_event=self.emit)
+            except RunCanceled:
+                raise
+            except Exception as exc:
+                report = {'status': 'unavailable', 'message': f'Không đọc được màn hình ({type(exc).__name__}). Kiểm tra WDA, mở khóa iPhone rồi thử lại. Không thao tác trên máy.'}
+            self.emit('screen_report', report)
+            return 'screen_read'
         return self._launch(work)
 
     def open_phone_setup(self):

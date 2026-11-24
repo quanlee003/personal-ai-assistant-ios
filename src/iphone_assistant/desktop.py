@@ -9,6 +9,7 @@ from tkinter import ttk
 from .desktop_controller import DesktopController
 from .direct_cli import PROJECT_ROOT
 from .device_catalog import MESSAGES
+from .screen_reader import describe_report
 
 BG = '#F3F5F6'
 INK = '#192D38'
@@ -122,8 +123,15 @@ class DesktopApp:
                     10, MUTED, wraplength=280).pack(anchor='w', pady=(10, 0))
 
         self._label(right, 'Kết quả gần nhất', 14, bold=True).pack(anchor='w')
+        self.read_button = ttk.Button(right, text='Đọc màn hình', command=self.read_screen)
+        self.read_button.pack(fill='x', pady=(12, 4))
+        self.screen_ai = tk.BooleanVar(value=False)
+        self.screen_ai_check = tk.Checkbutton(right, text='Gửi ảnh tới AI Gateway để mô tả',
+                                             variable=self.screen_ai, bg='white', fg=INK,
+                                             font=('Segoe UI', 9), wraplength=240, anchor='w', justify='left')
+        self.screen_ai_check.pack(anchor='w')
         self.result_title = self._label(right, 'Chưa có yêu cầu', 12, MUTED, True, wraplength=280)
-        self.result_title.pack(fill='x', pady=(24, 12))
+        self.result_title.pack(fill='x', pady=(12, 12))
         text_frame = tk.Frame(right, bg='white')
         text_frame.pack(fill='both', expand=True)
         self.result_text = tk.Text(text_frame, wrap='word', width=26, height=8,
@@ -156,6 +164,8 @@ class DesktopApp:
         self.result_text.configure(state='disabled')
 
     def _controls(self, busy):
+        self.read_button.state(['disabled'] if busy or not (self.readiness and self.readiness.phone) else ['!disabled'])
+        self.screen_ai_check.configure(state='disabled' if busy else 'normal')
         if self.catalog_window and self.catalog_window.winfo_exists():
             self.scan_button.state(['disabled'] if busy else ['!disabled'])
             self.setup_button.state(['disabled'] if busy or not (self.readiness and self.readiness.phone
@@ -168,6 +178,15 @@ class DesktopApp:
     def refresh(self):
         if self.controller.refresh():
             self.stopping = False
+            self._controls(True)
+
+    def read_screen(self):
+        if self.controller.read_screen(use_ai=self.screen_ai.get()):
+            self.stopping = False
+            self.last_record = None
+            self.record_button.state(['disabled'])
+            self.result_title.configure(text='Đang đọc màn hình…', fg=INK)
+            self._set_result('Đang lấy trạng thái hiện tại. Không tự bấm hoặc nhập nội dung. Kết quả lưu local.')
             self._controls(True)
 
     def _auto_scan(self):
@@ -303,6 +322,18 @@ class DesktopApp:
         self.root.after(50, self._poll)
 
     def _event(self, kind, value):
+        if kind == 'screen_report':
+            self.result_title.configure(text='Màn hình vừa đọc' if value.get('status') == 'read' else 'Chưa đọc được màn hình', fg=INK)
+            self._set_result(describe_report(value))
+            self.last_record = Path(value['record']) if value.get('record') else None
+            self.record_button.state(['!disabled'] if self.last_record else ['disabled'])
+            return
+        if kind == 'finished' and value == 'screen_read':
+            self.stopping = False
+            self.phase.configure(text='Đã kết thúc đọc', fg=INK)
+            self.message.configure(text='Kết quả bên phải là trạng thái tại thời điểm đọc. Chưa thao tác iPhone.')
+            self._controls(False)
+            return
         if kind == 'catalog':
             unchanged = self.catalog_data == value
             self.catalog_data = value
