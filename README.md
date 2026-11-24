@@ -30,8 +30,9 @@ vẫn có alias Việt/Anh; các tab khác chưa tự dịch tên. Tab vẽ tùy
 có thể chưa được nhận diện; không có bảo đảm hỗ trợ mọi app.
 
 **Quay lại:** nói “quay lại” hoặc “go back”. Hiện chỉ bấm khi có đúng một nút
-Back/Quay lại/Trở lại trong thanh điều hướng native. Nút mang tên trang trước,
-chỉ có icon hoặc nút Đóng chưa được suy đoán thành Back. App kiểm tra tiêu đề
+Back/Quay lại/Trở lại hoặc định danh `BackButton` trong thanh điều hướng native.
+Định danh này hỗ trợ nút mang nhãn trang trước như “Cài đặt” trên trang Pin.
+Nếu không có nhãn/định danh trên, app không đoán từ icon hoặc nút Đóng. App kiểm tra tiêu đề
 trang thay đổi trong cùng ứng dụng sau một lần bấm; đây là bằng chứng điều
 hướng, không xác nhận nội dung cụ thể của trang đích. Nếu tiêu đề không đổi,
 kết quả là chưa xác minh và app không bấm lại. Chưa hỗ trợ vuốt quay lại/cuộn.
@@ -351,10 +352,12 @@ Tính đến 18/11/2026:
   `steps_attempted=2`, `steps_acknowledged=2`, `error_code=null`; người dùng xác
   nhận hoạt động tốt. Đã kiểm chứng giọng nói → AI → launch/click → AI xác minh.
   Không suy ra hai lượt thuộc cùng một phiên vì bản ghi chưa có session ID.
-- 103 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
+- 104 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
 - Mở rộng tab theo tên và quay lại đã qua kiểm thử tự động; AI Gateway thực tế
-  nhận đúng “switch to tab Search” và “go back”. Chưa kiểm thử thao tác mở rộng
-  trên app khác bằng iPhone thật; các kết quả Đồng hồ bên dưới thuộc bản trước.
+  nhận đúng “switch to tab Search” và “go back”. Trên iPhone thật đã xác minh
+  chuyển sang Bấm giờ trong Đồng hồ, Tìm kiếm/Today trong App Store và quay lại
+  từ Pin về Cài đặt. Các lượt mới này gọi bằng code, chưa kiểm thử microphone
+  cho tab App Store và lệnh quay lại; không suy rộng thành hỗ trợ mọi app.
 - Đã đọc local màn hình Đồng hồ / Báo thức trên iPhone thật, nhận diện 13 thành
   phần giao diện. Phần mô tả bằng AI được kiểm thử bằng mock, chưa thử cloud thực tế.
 - Đã kiểm thử chuyển cả bốn tab Đồng hồ trên iPhone thật: mỗi

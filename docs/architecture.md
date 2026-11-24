@@ -60,8 +60,9 @@ API trả lời chỉ là acknowledged. `verified_match` dựa trên phương ph
 ảnh với Cài đặt/Pin, foreground bundle khi mở app, selected tab khi chuyển tab,
 hoặc tiêu đề navigation thay đổi trong cùng app khi quay lại. Kiểm tra tiêu đề
 không chứng minh nội dung trang đích. Điều hướng không gửi cấu trúc UI lên AI.
-Tab chỉ lấy button trong TabBar; Back chỉ nhận nhãn Back/Quay lại/Trở lại trong
-NavigationBar. Không suy đoán từ tọa độ, nút Đóng hoặc tên trang trước. XPath
+Tab chỉ lấy button trong TabBar; Back nhận nhãn Back/Quay lại/Trở lại hoặc
+định danh BackButton trong NavigationBar. Không suy đoán từ tọa độ, nút Đóng
+hoặc tên trang trước khi thiếu định danh BackButton. XPath
 escape tên quan sát được, không chèn trực tiếp yêu cầu model vào selector.
 `steps_attempted` đếm bước đã bắt đầu, kể cả bị guard chặn trước khi gửi;
 `steps_acknowledged` đếm bước được WDA phản hồi. Không suy ra toàn bộ quy trình
