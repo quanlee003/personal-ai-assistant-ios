@@ -4,9 +4,9 @@ Bạn nói vào microphone của PC Windows → trợ lý hiểu yêu cầu → 
 tiếp đến iPhone qua WebDriverAgent (WDA) → chụp màn hình để AI xác minh kết quả.
 Chế độ tự động không yêu cầu Enter, sửa câu hay xác nhận `y` từng lượt.
 
-**Bản hiện tại hỗ trợ “mở Cài đặt” và “mở phần Pin trong Cài đặt”.** Tác vụ Pin
-chỉ mở trang để xem, không đổi tùy chọn. Chưa điều khiển app khác hoặc tự lập kế
-hoạch nhiều bước. Đây là bản thử nghiệm
+**Bản hiện tại hỗ trợ mở app đã cài theo tên và mở phần Pin trong Cài đặt.**
+Ví dụ: “mở Zalo”, “mở Safari”, “mở Đồng hồ”. Chỉ mở app, chưa thao tác bên trong
+app khác hoặc tự lập kế hoạch nhiều bước. Tác vụ Pin không đổi tùy chọn. Đây là bản thử nghiệm
 dùng PC kết nối iPhone, chưa phải ứng dụng độc lập cài từ App Store.
 
 ## 1. Dùng ngay trên máy đã thiết lập
@@ -25,9 +25,19 @@ bằng WDA khi kết nối sẵn sàng; không tự bật tính năng hay bấm 
 Nếu không mở được, app hiển thị đường dẫn để người dùng vào thủ công.
 
 Danh mục lưu riêng theo mã thiết bị băm tại `runtime/device-profiles/`, chỉ ở
-máy local. App luôn đọc lại khi kết nối lại, không hiển thị dữ liệu máy cũ như
-dữ liệu máy mới. Bản này chưa đọc báo cáo sử dụng, chưa gửi danh mục lên AI và
-chưa mở rộng whitelist lệnh giọng nói theo danh mục.
+máy local. Khi mở app theo tên, chương trình đọc lại danh mục để kiểm tra app
+còn trên đúng máy. Bản này chưa đọc báo cáo sử dụng và không gửi danh mục lên AI.
+
+AI chỉ lấy tên app từ câu nói; chương trình đối chiếu local, không đoán bundle
+ID. Tên không khớp hoặc trùng nhiều app sẽ không mở. App người dùng được hỗ trợ;
+app hệ thống chỉ gồm danh sách app công khai trong `app_launch.py`, không mở các
+dịch vụ nội bộ. Một số app hệ thống có tên Việt/Anh tương đương như Đồng hồ/Clock.
+Danh mục quét vì thế rộng hơn danh sách app cho phép mở.
+
+Mở app thông thường xác minh bằng bundle ID ở phía trước, không chụp/gửi ảnh
+màn hình. Bản ghi có `verification_method=foreground_bundle`, bundle đích và
+bundle quan sát. Điều này xác nhận app được mở, không xác nhận đăng nhập hoặc
+nội dung đã tải xong. Cài đặt/Pin vẫn dùng luồng xác minh ảnh hiện có.
 
 Trên máy đã thiết lập, app tự dùng môi trường thiết bị hiện có. Khi cài mới,
 dependency cho quét thuộc extra `device` (`pip install -e ".[device]"`). Không
@@ -137,7 +147,7 @@ trên terminal. Tác vụ Pin là quy trình cố định tối đa hai bước,
 
 | Trạng thái | Ý nghĩa |
 | --- | --- |
-| `verified_match` | AI thấy ảnh sau phù hợp với màn hình mong đợi. |
+| `verified_match` | Xác nhận đúng bundle ID ở phía trước khi mở app; với Cài đặt/Pin, AI xác minh ảnh sau. |
 | `action_sent` | WDA đã phản hồi nhưng chưa đánh giá kết quả bằng ảnh. |
 | `needs_clarification` | Câu chưa rõ hoặc chưa hỗ trợ; không thao tác. |
 | `target_not_found` | Mục tiêu ngoài phạm vi hoặc không tìm thấy nút Pin hợp lệ. Có thể đã mở Cài đặt; xem các cờ/bộ đếm bước. |
@@ -300,7 +310,9 @@ Tính đến 18/11/2026:
   `steps_attempted=2`, `steps_acknowledged=2`, `error_code=null`; người dùng xác
   nhận hoạt động tốt. Đã kiểm chứng giọng nói → AI → launch/click → AI xác minh.
   Không suy ra hai lượt thuộc cùng một phiên vì bản ghi chưa có session ID.
-- Sau đợt dọn repo, 66 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
+- 73 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
+- Đã thử yêu cầu gõ qua AI → đối chiếu danh mục → mở Đồng hồ, Safari và Zalo trên máy thật, đều xác minh đúng app.
+- Ngày 24/11/2026, người dùng xác nhận đã thử tính năng mở app và hoạt động ổn định trên máy của mình; chưa suy rộng sang mọi app hoặc thiết bị khác.
 - Chưa kiểm chứng app khác, máy/thiết bị khác hoặc phục hồi sau reboot đầy đủ.
 
 ```powershell

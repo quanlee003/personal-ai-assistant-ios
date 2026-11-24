@@ -1,6 +1,6 @@
 # Kiến trúc hiện tại
 
-Ứng dụng PC điều phối iPhone qua WDA. Chỉ có hai tác vụ: mở Cài đặt và mở trang Pin.
+Ứng dụng PC điều phối iPhone qua WDA: mở app theo tên và mở trang Pin.
 Mỗi lượt nhận yêu cầu mới; không có planner tổng quát, TTS hay Voice Control fallback.
 
 ## Luồng chạy
@@ -37,6 +37,13 @@ Schema intent giữ `direction="none"` để bảo toàn cấu trúc phản hồ
 không có thao tác vuốt/hướng di chuyển.
 
 ## Bộ thực thi
+
+`app_launch.py` xử lý mở app ngoài Cài đặt: quét mới, đối chiếu chính xác tên đã
+chuẩn hóa hoặc alias hệ thống được khai báo, từ chối tên trùng/không khớp và dịch
+vụ hệ thống nội bộ. AI không nhận danh mục và không tự chọn bundle ID. Trước khi
+mở, hash thiết bị phải khớp tunnel WDA. POST mở app chỉ gửi một lần; đọc foreground
+tối đa bốn lần để xác minh. Không chụp hoặc gửi ảnh app khác lên vision.
+Kết quả ghi bundle đích, bundle quan sát và phương pháp xác minh; timeout không retry.
 
 - Mở Cài đặt: một lần tạo session với bundle `com.apple.Preferences`.
 - Trang Pin: mở Cài đặt; nếu đã đúng trang Pin thì không chạm. Nếu chưa, tìm đúng
