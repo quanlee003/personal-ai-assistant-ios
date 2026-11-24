@@ -63,8 +63,14 @@ tiêu đề hoặc tên khác thì báo chưa xác minh, không bấm lại.
 
 Lệnh này gửi **tên mục giao diện** lên AI, có thể chứa thông tin riêng tư;
 không gửi ảnh, giá trị ô nhập hoặc toàn bộ XML. Tùy chọn gửi ảnh của nút Đọc
-màn hình không điều khiển bước chọn mục này. Khi có ô mật khẩu hiển thị, không
-chọn mục. Phiên giọng nói tự động không hỏi xác nhận từng lượt.
+màn hình không điều khiển bước chọn mục này. Khi có ô mật khẩu, hộp thoại,
+sheet hoặc bàn phím hiển thị, không chọn mục phía sau. Phiên giọng nói tự động
+không hỏi xác nhận từng lượt.
+
+Nếu nút chỉ có mã nội bộ nhưng chứa đúng một nhãn chữ hiển thị, app dùng nhãn
+con để hiểu yêu cầu và kết hợp mã nút với nhãn con để định vị. Nút có nhiều nhãn
+con nhưng thiếu nhãn riêng vẫn bị bỏ qua. Tiêu đề trang ưu tiên chữ hiển thị
+duy nhất trong thanh điều hướng thay vì mã nội bộ của thanh.
 
 **Đọc màn hình:** mở trang muốn xem trên iPhone, giữ màn hình sáng rồi bấm
 **Đọc màn hình** ở cột kết quả. App hiển thị tên ứng dụng, tiêu đề trang nếu có,
@@ -379,12 +385,25 @@ Tính đến 18/11/2026:
   `steps_attempted=2`, `steps_acknowledged=2`, `error_code=null`; người dùng xác
   nhận hoạt động tốt. Đã kiểm chứng giọng nói → AI → launch/click → AI xác minh.
   Không suy ra hai lượt thuộc cùng một phiên vì bản ghi chưa có session ID.
-- 126 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
+- 131 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
 - Luồng AI chọn mục trên máy thật đã mở Pin trong Cài đặt và Music trong App
   Store, xác minh bằng tiêu đề đích. Màn hình Tệp đã thử không có mục đủ điều
   kiện nên không thao tác. Một lần bấm Cài đặt chung chưa chuyển trang và được
   báo chưa xác minh; sau đó bổ sung bộ lọc mục sát mép. Chưa kiểm thử microphone
-  cho lệnh mở mục mới, chưa suy rộng sang mọi app/màn hình.
+  cho các ca mới ngoài xác nhận người dùng bên dưới; chưa suy rộng sang mọi app/màn hình.
+- Người dùng xác nhận lệnh mở mục ban đầu hoạt động bằng giọng nói.
+- Mở rộng kiểm thử 24/11/2026: Zalo chuyển tab Cá nhân thành công; sau cải tiến
+  nhãn con và tiêu đề, AI mở Tài khoản và bảo mật đạt `verified_match`. Không
+  đổi thiết lập tài khoản. Đây là ca gọi bằng code, chưa thử microphone cho Zalo.
+- Messenger/Instagram/Spotify: đã quan sát màn hình mở đầu; chưa tìm được mục
+  điều hướng công khai phù hợp trong ứng viên để thử click, không mở hội thoại
+  hoặc phát nội dung. GitHub: màn hình đã thử không có ứng viên đủ điều kiện.
+  YouTube: đã đọc ứng viên nhưng khi thử yêu cầu thì foreground đã về màn hình
+  chính, nên lệnh bị chặn trước click. Các quan sát này không phải kết luận
+  toàn bộ ứng dụng không được hỗ trợ.
+- Dữ liệu Pin được đọc thủ công trong lượt kiểm thử để chọn nhóm app ưu tiên;
+  chưa có tính năng tự thu thập/xếp hạng thói quen từ Pin trong app PC. Không
+  coi phần trăm pin hoặc thời gian chạy nền là thời gian người dùng tương tác.
 - Người dùng xác nhận giọng nói chuyển tab App Store và quay lại đã thành công.
 - Đã thử cuộn xuống rồi lên trong Cài đặt trên iPhone thật: cả hai lượt đạt
   `verified_match` bằng `visible_element_movement`, mỗi lượt gửi đúng một lần

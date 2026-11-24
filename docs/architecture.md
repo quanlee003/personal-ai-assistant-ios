@@ -70,6 +70,12 @@ khớp fingerprint trước/sau AI và trước click, selector phải trả đ�
 tử, type/label/visible/enabled phải còn đúng. Chỉ báo verified_match khi tiêu đề
 mới khác tiêu đề cũ và khớp nhãn mục hoặc yêu cầu. Bộ lọc local và đánh giá AI
 giảm chọn nhầm hành động, không phải chứng minh ngữ nghĩa của mọi control.
+Nếu nút thiếu label nhưng có đúng một StaticText hiển thị, dùng chữ con làm
+nhãn ứng viên; XPath kết hợp name của nút và nhãn con, kiểm tra name/type thay
+vì giả định label tồn tại. Không đưa mã nội bộ không có nhãn chữ lên AI.
+NavigationBar ưu tiên đúng một StaticText hiển thị làm tiêu đề. Hộp thoại,
+sheet, bàn phím hoặc ô mật khẩu hiển thị chặn toàn bộ chọn mục, kể cả khi WDA
+vẫn đánh dấu các phần tử nền là visible. Kiểm tra lại sau AI vẫn áp dụng guard.
 Tab chỉ lấy button trong TabBar; Back nhận nhãn Back/Quay lại/Trở lại hoặc
 định danh BackButton trong NavigationBar. Không suy đoán từ tọa độ, nút Đóng
 hoặc tên trang trước khi thiếu định danh BackButton. XPath
