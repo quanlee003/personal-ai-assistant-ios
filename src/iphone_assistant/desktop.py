@@ -116,7 +116,7 @@ class DesktopApp:
         self.stop_button = ttk.Button(middle, text='Dừng', command=self.stop)
         self.stop_button.pack(fill='x', pady=(8, 12))
         self._label(middle, 'Thử nói', 10, MUTED).pack(anchor='w', pady=(4, 6))
-        self._label(middle, '“Mở Cài đặt”\n“Mở phần Pin trong Cài đặt”', 11,
+        self._label(middle, '“Mở Zalo” · “Mở Safari”\n“Mở phần Pin trong Cài đặt”', 11,
                     wraplength=280).pack(anchor='w')
         self._label(middle, 'Không cần xác nhận từng lượt.',
                     10, MUTED, wraplength=280).pack(anchor='w', pady=(10, 0))
