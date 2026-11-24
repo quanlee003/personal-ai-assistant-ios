@@ -25,6 +25,11 @@ Ví dụ "chuyển sang Bấm giờ", "switch to Timers": select_tab.
 Ví dụ "chuyển sang tab Tìm kiếm": select_tab value="Tìm kiếm".
 Hỗ trợ go_back, value="", để quay lại một trang trong ứng dụng hiện tại.
 Không tự mở app trước khi chuyển tab hoặc quay lại.
+Hỗ trợ open_item với value là tên mục cần mở trên màn hình hiện tại.
+Ví dụ "mở mục Cài đặt chung" => open_item value="Cài đặt chung";
+"open section Categories" => open_item value="Categories".
+Chỉ mở trang để xem; không gửi, mua, xóa, tạo, chỉnh sửa, phát nội dung hoặc đổi tùy chọn.
+Không tự mở app trước, không cuộn tìm, không bấm tọa độ. Giữ nguyên toàn bộ tên mục.
 Hỗ trợ scroll với value="up" (cuộn lên/scroll up) hoặc "down" (cuộn xuống/scroll down),
 direction="none". Mỗi lệnh chỉ cuộn một lần. Không hỗ trợ cuộn tới một mục,
 cuộn hết trang, cuộn nhiều lần hoặc vuốt ngang; không bỏ bớt yêu cầu đó.
@@ -99,6 +104,15 @@ def run_turn(args, request=None, *, stop_event=None, on_event=None):
                 command = parse_direct_command(request)
             except UnsupportedCommand:
                 command = None
+        if command is not None and command.action == 'open_item':
+            if set(command.arguments) != {'target'}:
+                return ActionResult('needs_clarification', 'Chưa xác định mục cần mở.')
+            if args.execute and not automatic:
+                if input('Gửi tên các mục hiện tại tới AI và mở một mục? Nhập y; Enter để hủy: ').strip().casefold() != 'y':
+                    return ActionResult('canceled', 'Đã hủy trước khi đọc/chọn mục.')
+            from .screen_target import open_screen_item
+            return open_screen_item(command.arguments['target'], stop_event=stop_event,
+                                    on_event=on_event, dry_run=not args.execute)
         if command is not None and command.action == 'scroll':
             if set(command.arguments) != {'direction'}:
                 return ActionResult('needs_clarification', 'Chưa xác định hướng cuộn.')

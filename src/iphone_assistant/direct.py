@@ -34,6 +34,11 @@ def parse_direct_command(request: str) -> Command:
     if normalize(request) in {'mo pin', 'mo muc pin', 'mo phan pin', 'mo pin trong cai dat',
                                'mo muc pin trong cai dat', 'mo phan pin trong cai dat'}:
         return Command('select_target', {'target': BATTERY_TARGET})
+    for prefix in ('mo muc ', 'mo phan ', 'open item ', 'open section '):
+        if normalize(request).startswith(prefix):
+            target = ' '.join(request.split()[len(prefix.split()):])
+            if target:
+                return Command('open_item', {'target': target})
     return parse_command(request)
 
 
