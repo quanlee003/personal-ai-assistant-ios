@@ -42,9 +42,15 @@ def selected(node):
 
 
 def navigation_titles(xml):
-    return tuple((node.get('name') or node.get('label') or '').strip()
-                 for node in ET.fromstring(xml).iter('XCUIElementTypeNavigationBar')
-                 if node.get('visible') == 'true')
+    titles = []
+    for bar in ET.fromstring(xml).iter('XCUIElementTypeNavigationBar'):
+        if bar.get('visible') != 'true':
+            continue
+        labels = list(dict.fromkeys((node.get('label') or '').strip()
+                                    for node in bar.iter('XCUIElementTypeStaticText')
+                                    if node.get('visible') == 'true' and (node.get('label') or '').strip()))
+        titles.append(labels[0] if len(labels) == 1 else (bar.get('label') or bar.get('name') or '').strip())
+    return tuple(titles)
 
 
 BACK = ('Back', 'Quay lại', 'Trở lại')

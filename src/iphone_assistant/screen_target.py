@@ -23,7 +23,9 @@ def risky(text):
 
 def candidates(xml):
     root = ET.fromstring(xml)
-    if any(n.tag == 'XCUIElementTypeSecureTextField' and n.get('visible') == 'true' for n in root.iter()):
+    if any(n.tag in {'XCUIElementTypeSecureTextField', 'XCUIElementTypeAlert',
+                     'XCUIElementTypeSheet', 'XCUIElementTypeKeyboard'}
+           and n.get('visible') == 'true' for n in root.iter()):
         return []
     result = []
     windows = [n for n in root.iter('XCUIElementTypeWindow') if n.get('visible') == 'true']
@@ -40,8 +42,13 @@ def candidates(xml):
         # WDA can mark layout-only ancestors invisible while their children are visible.
         excluded = excluded or node.tag in {'XCUIElementTypeNavigationBar', 'XCUIElementTypeTabBar', 'XCUIElementTypeToolbar', 'XCUIElementTypeAlert', 'XCUIElementTypeSheet'}
         in_list = in_list or node.tag in {'XCUIElementTypeTable', 'XCUIElementTypeCollectionView', 'XCUIElementTypeScrollView'}
-        label = (node.get('label') or node.get('name') or '').strip()
         descendants = list(node.iter())
+        own_label = (node.get('label') or '').strip()
+        child_labels = list(dict.fromkeys((child.get('label') or '').strip() for child in descendants
+                                         if child is not node and child.tag == 'XCUIElementTypeStaticText'
+                                         and child.get('visible') == 'true' and (child.get('label') or '').strip()))
+        derived = not own_label and len(child_labels) == 1
+        label = child_labels[0] if derived else own_label
         eligible = (not excluded and in_list and node.tag in {'XCUIElementTypeButton', 'XCUIElementTypeCell'}
                     and node.get('visible') == 'true' and node.get('enabled') == 'true'
                     and fully_inside(node)
@@ -49,8 +56,15 @@ def candidates(xml):
                     and not any(n.tag in FORBIDDEN_TYPES or risky(n.get('label') or '') for n in descendants))
         # Prefer a labelled button within a cell, not both parent and child.
         if eligible and not (node.tag == 'XCUIElementTypeCell' and any(n.tag == 'XCUIElementTypeButton' for n in descendants)):
+            identity = ('name', node.get('name')) if derived and node.get('name') else ('label', node.get('label'))
+            if not identity[1]:
+                return
+            match = f'@{identity[0]}={xpath_literal(identity[1])}'
+            if derived:
+                match += f' and .//XCUIElementTypeStaticText[@label={xpath_literal(label)} and @visible="true"]'
             result.append({'id': str(len(result)), 'label': label, 'type': node.tag,
-                           'selector': f'//{node.tag}[(@label={xpath_literal(label)} or @name={xpath_literal(label)}) and @visible="true" and @enabled="true"]',
+                           'identity': identity,
+                           'selector': f'//{node.tag}[{match} and @visible="true" and @enabled="true"]',
                            'fingerprint': ET.tostring(node, encoding='unicode')})
         for child in node:
             walk(child, in_list, excluded)
@@ -128,7 +142,7 @@ def open_screen_item(target, *, dry_run=False, stop_event=None, on_event=None,
         if not element:
             return result('target_not_found', 'Không có định danh phần tử; chưa bấm.')
         path = '/element/' + quote(element, safe='')
-        for attribute, expected in [('label', chosen['label']), ('type', chosen['type'])]:
+        for attribute, expected in [chosen['identity'], ('type', chosen['type'])]:
             if backend.session_request('GET', path + '/attribute/' + attribute)['value'] != expected:
                 return result('target_not_found', 'Phần tử đã thay đổi; chưa bấm.')
         for attribute in ('visible', 'enabled'):

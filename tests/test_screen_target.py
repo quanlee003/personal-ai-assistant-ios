@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from iphone_assistant.screen_target import candidates, open_screen_item, choose_target
 from iphone_assistant.commands import Command
 from iphone_assistant.intent import IntentResult
+from iphone_assistant.screen_navigation import navigation_titles
 
 
 def xml(label='Categories', title='Home', extra='', y=200):
@@ -55,8 +56,42 @@ class TargetTests(unittest.TestCase):
     def test_secure_screen_excluded(self):
         self.assertEqual(candidates(xml(extra='<XCUIElementTypeSecureTextField visible="true"/>')), [])
 
+    def test_overlay_blocks_background_items_before_cloud(self):
+        for kind in ('XCUIElementTypeAlert', 'XCUIElementTypeSheet', 'XCUIElementTypeKeyboard'):
+            source = xml().replace('</root>', f'<{kind} visible="true"/></root>')
+            self.b.session_request.side_effect = lambda *args: {'value': source}
+            self.assertEqual(self.run_item().status, 'target_not_found')
+        self.chooser.assert_not_called()
+        self.assertEqual(self.clicks, 0)
+
+    def test_overlay_appearing_during_ai_blocks_click(self):
+        def choose(target, items):
+            source = xml().replace('</root>', '<XCUIElementTypeAlert visible="true"/></root>')
+            self.b.session_request.side_effect = lambda *args: {'value': source}
+            return items[0]
+        self.chooser.side_effect = choose
+        self.assertEqual(self.run_item().status, 'target_not_found')
+        self.assertEqual(self.clicks, 0)
+
     def test_bottom_edge_excluded(self):
         self.assertEqual(candidates(xml(y=800)), [])
+
+    def test_child_label_disambiguates_shared_internal_identifier(self):
+        def row(title):
+            return xml(label='', extra=f'<XCUIElementTypeStaticText label="{title}" visible="true"/>').replace('label=""', 'name="shared_internal_id"')
+        items = candidates('<root>' + row('Account') + row('Privacy') + '</root>')
+        self.assertEqual([i['label'] for i in items], ['Account', 'Privacy'])
+        self.assertNotEqual(items[0]['selector'], items[1]['selector'])
+        self.assertEqual(items[0]['identity'], ('name', 'shared_internal_id'))
+
+    def test_navigation_title_uses_visible_text_not_internal_name(self):
+        self.assertEqual(navigation_titles('<root><XCUIElementTypeNavigationBar name="internal_bar" visible="true"><XCUIElementTypeStaticText label="Account" visible="true"/></XCUIElementTypeNavigationBar></root>'), ('Account',))
+
+    def test_internal_id_alone_or_multiple_child_labels_not_sent_to_ai(self):
+        source = xml(label='').replace('label=""', 'name="internal_id"')
+        self.assertEqual(candidates(source), [])
+        source = xml(label='', extra='<XCUIElementTypeStaticText label="A" visible="true"/><XCUIElementTypeStaticText label="B" visible="true"/>').replace('label=""', 'name="internal_id"')
+        self.assertEqual(candidates(source), [])
 
     def test_invisible_layout_ancestor_does_not_hide_visible_item(self):
         self.assertEqual(len(candidates(xml())), 1)
