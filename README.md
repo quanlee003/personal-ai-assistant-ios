@@ -6,12 +6,38 @@ Chế độ tự động không yêu cầu Enter, sửa câu hay xác nhận `y`
 
 **Bản hiện tại hỗ trợ mở app đã cài theo tên và mở phần Pin trong Cài đặt.**
 Ví dụ: “mở Zalo”, “mở Safari”, “mở Đồng hồ”. Chỉ mở app, chưa thao tác bên trong
-app khác hoặc tự lập kế hoạch nhiều bước. Tác vụ Pin không đổi tùy chọn. Đây là bản thử nghiệm
+app khác hoặc tự lập kế hoạch nhiều bước, ngoài chuyển tab Đồng hồ mô tả bên dưới. Tác vụ Pin không đổi tùy chọn. Đây là bản thử nghiệm
 dùng PC kết nối iPhone, chưa phải ứng dụng độc lập cài từ App Store.
 
 ## 1. Dùng ngay trên máy đã thiết lập
 
 ### Mở cửa sổ Windows
+
+**Chuyển tab bằng giọng nói:** mở Đồng hồ trên iPhone, bấm **Bắt đầu**, rồi nói
+“chuyển sang Bấm giờ”, “chuyển sang Báo thức”, “chuyển sang Hẹn giờ” hoặc
+“chuyển sang Giờ quốc tế”. Cũng nhận yêu cầu tiếng Anh như “switch to Stopwatch”.
+Không cần bấm Đọc màn hình trước: mỗi lệnh tự đọc giao diện hiện tại để tìm tab.
+App chỉ bấm một lần rồi kiểm tra tab được chọn; tab đã mở thì không bấm lại.
+Không tạo/sửa báo thức hoặc chạy bộ đếm. Nếu đang ở app khác, không thấy tab,
+hoặc chưa xác minh được kết quả, app dừng và không tự gửi lại lần bấm.
+Thao tác này dùng cấu trúc giao diện local, không chụp/gửi ảnh; giọng nói và câu
+yêu cầu vẫn dùng Deepgram/AI Gateway như các lệnh mở app.
+
+**Đọc màn hình:** mở trang muốn xem trên iPhone, giữ màn hình sáng rồi bấm
+**Đọc màn hình** ở cột kết quả. App hiển thị tên ứng dụng, tiêu đề trang nếu có,
+nội dung và các nút/ô nhập mà WDA đọc được. Chức năng này chỉ quan sát, chưa
+bấm nút hoặc thực hiện tác vụ bên trong app. Không cần microphone hay key để đọc local.
+
+Mặc định không chụp/gửi ảnh. Tích **Gửi ảnh tới AI Gateway để mô tả** trước khi
+đọc nếu muốn AI bổ sung mô tả từ ảnh; mô tả có thể sai. Khi phát hiện ô mật khẩu,
+app bỏ qua chụp/gửi ảnh. Đây không phải bộ lọc mọi thông tin riêng tư: chỉ bật
+gửi ảnh khi bạn muốn chia sẻ nội dung màn hình với dịch vụ AI đã cấu hình.
+
+Bản đọc nằm trong `runtime/screen-reads/`, mở bằng **Mở kết quả local**. Ảnh chỉ
+được lưu khi chọn AI. App không tự đọc khi kết nối; nếu màn hình đổi trong lúc
+đọc, app yêu cầu thử lại để tránh trộn nội dung. Trang động có thể cần tạm dừng
+nội dung trước khi đọc. Một số app không cung cấp đầy đủ cấu trúc giao diện;
+danh sách nhìn thấy không chứng minh mọi nút đều thao tác được.
 
 **Quét máy trong app:** mở **Ứng dụng & thiết lập** ở cột trái. Khi app mở hoặc
 phát hiện iPhone USB mới, app tự đọc danh sách ứng dụng. Khi đang rảnh, app kiểm
@@ -310,7 +336,13 @@ Tính đến 18/11/2026:
   `steps_attempted=2`, `steps_acknowledged=2`, `error_code=null`; người dùng xác
   nhận hoạt động tốt. Đã kiểm chứng giọng nói → AI → launch/click → AI xác minh.
   Không suy ra hai lượt thuộc cùng một phiên vì bản ghi chưa có session ID.
-- 73 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
+- 92 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
+- Đã đọc local màn hình Đồng hồ / Báo thức trên iPhone thật, nhận diện 13 thành
+  phần giao diện. Phần mô tả bằng AI được kiểm thử bằng mock, chưa thử cloud thực tế.
+- Đã kiểm thử chuyển cả bốn tab Đồng hồ trên iPhone thật: mỗi
+  chuyển tab bấm đúng một lần và xác minh `selected_tab`. Gọi lại tab Hẹn giờ
+  đang mở không phát lần bấm mới. Kiểm thử này dùng lệnh văn bản qua luồng app,
+  người dùng sau đó xác nhận lệnh giọng nói chuyển tab hoạt động trên máy mình.
 - Đã thử yêu cầu gõ qua AI → đối chiếu danh mục → mở Đồng hồ, Safari và Zalo trên máy thật, đều xác minh đúng app.
 - Ngày 24/11/2026, người dùng xác nhận đã thử tính năng mở app và hoạt động ổn định trên máy của mình; chưa suy rộng sang mọi app hoặc thiết bị khác.
 - Chưa kiểm chứng app khác, máy/thiết bị khác hoặc phục hồi sau reboot đầy đủ.
