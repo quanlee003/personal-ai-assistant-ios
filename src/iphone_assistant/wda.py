@@ -53,11 +53,17 @@ class WDABackend:
         return self.request('GET', '/status')['value'].get('ready') is True
 
     def open_settings(self):
+        self.open_app('com.apple.Preferences')
+
+    def open_app(self, bundle_id):
         self.session_id = None
         self._battery_element = None
         result = self.request('POST', '/session', {'capabilities': {'alwaysMatch': {
-            'bundleId': 'com.apple.Preferences', 'shouldTerminateApp': False}}})
+            'bundleId': bundle_id, 'shouldTerminateApp': False}}})
         self.session_id = result.get('sessionId') or result.get('value', {}).get('sessionId')
+
+    def active_bundle(self):
+        return self.session_request('GET', '/wda/activeAppInfo')['value'].get('bundleId')
 
     def session_request(self, method, path, payload=None):
         if not self.session_id:

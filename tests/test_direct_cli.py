@@ -149,7 +149,7 @@ class DirectCLITests(unittest.TestCase):
     def test_auto_ambiguity_and_out_of_scope_never_execute(self):
         args = SimpleNamespace(auto=True, listen=False, ai=True, execute=True, verify=True)
         for intent in [SimpleNamespace(decision='clarify', message='Nói lại?'),
-                       SimpleNamespace(decision='action', command=Command('open_app', {'app_name': 'Mail'}))]:
+                       SimpleNamespace(decision='action', command=Command('select_target', {'target': 'unsupported'}))]:
             with patch('builtins.input', side_effect=AssertionError), patch(
                     'iphone_assistant.intent.understand_intent', return_value=intent), patch(
                     'iphone_assistant.wda.WDABackend') as backend:

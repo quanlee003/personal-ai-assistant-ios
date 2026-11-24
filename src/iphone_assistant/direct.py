@@ -44,6 +44,9 @@ class ActionResult:
     steps_attempted: int = 0
     steps_acknowledged: int = 0
     error_code: str | None = None
+    target_bundle_id: str | None = None
+    observed_bundle_id: str | None = None
+    verification_method: str | None = None
 
     def to_dict(self):
         return asdict(self)

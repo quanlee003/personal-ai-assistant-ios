@@ -12,11 +12,12 @@ from .direct import (ActionResult, execute, validate_command, parse_direct_comma
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 DIRECT_PROMPT = """Bạn hiểu yêu cầu tiếng Việt thành đúng một hành động.
-Hỗ trợ open_app với value="Settings" để mở Cài đặt, stop để hủy,
+Hỗ trợ open_app với value là tên ứng dụng người dùng muốn mở, dùng "Settings" cho Cài đặt; stop để hủy,
 hoặc select_target với value="settings.battery" để mở trang Pin trong Cài đặt.
 Ví dụ "mở phần Pin trong Cài đặt", "mở mục Pin", "mở Pin": select_target settings.battery.
 Chỉ được xem trang Pin, không bật/tắt phần trăm pin, tiết kiệm pin, sạc hay đổi tùy chọn.
-Không hỗ trợ chạm tùy ý, ứng dụng khác hoặc ghép nhiều yêu cầu.
+Chỉ mở ứng dụng, không thực hiện việc bên trong app. Không hỗ trợ chạm tùy ý hoặc ghép nhiều yêu cầu.
+Giữ nguyên tên app được nhắc đến, không đoán tên hoặc bundle ID. Danh sách app sẽ được đối chiếu local.
 Yêu cầu mở trang Pin là một tác vụ cố định được hỗ trợ. Các yêu cầu nhiều bước
 khác hoặc kèm đổi tùy chọn phải decision="unsupported"; không bỏ bớt phần yêu cầu.
 Nếu mơ hồ: decision="clarify". Không tự bỏ bớt phần yêu cầu.
@@ -86,6 +87,15 @@ def run_turn(args, request=None, *, stop_event=None, on_event=None):
                 command = parse_direct_command(request)
             except UnsupportedCommand:
                 command = None
+        if (command is not None and command.action == 'open_app'
+                and set(command.arguments) == {'app_name'}
+                and normalize(command.arguments['app_name']) not in {'cai dat', 'settings'}):
+            if args.execute and not automatic:
+                if input('Nhập y để mở app; Enter để hủy: ').strip().casefold() != 'y':
+                    return ActionResult('canceled', 'Đã hủy trước khi mở app.')
+            from .app_launch import launch_app
+            return launch_app(command.arguments['app_name'], stop_event=stop_event,
+                              on_event=on_event, dry_run=not args.execute)
         invalid = validate_command(command)
         if invalid:
             return invalid
@@ -179,7 +189,7 @@ def main():
     parser.add_argument('--verify', action='store_true', help='Gửi ảnh sau qua AI Gateway khi được xác nhận')
     parser.add_argument('--session', action='store_true', help='Nhiều lượt độc lập; /quit để thoát')
     parser.add_argument('--max-turns', type=int, default=10, help='Giới hạn phiên, từ 1 đến 100')
-    parser.add_argument('--auto', action='store_true', help='Tự mở Cài đặt hoặc trang Pin; gửi audio/ý định/ảnh tới dịch vụ hiện có')
+    parser.add_argument('--auto', action='store_true', help='Mở app đã cài hoặc trang Pin; không hỏi xác nhận từng lượt')
     parser.add_argument('--voice-threshold', type=int, default=500, help='Ngưỡng RMS int16 để phát hiện tiếng nói (1–32767)')
     parser.add_argument('--silence-seconds', type=float, default=1.2, help='Khoảng im lặng kết thúc câu (0.5–3 giây)')
     args = parser.parse_args()
@@ -201,7 +211,7 @@ def main():
     from dotenv import load_dotenv
     load_dotenv(PROJECT_ROOT / '.env', override=False)
     if args.auto:
-        print('AUTO: mở Cài đặt hoặc trang Pin, không hỏi y. Audio → Deepgram; câu và ảnh → AI Gateway hiện có.')
+        print('AUTO: mở app đã cài hoặc trang Pin, không hỏi y. Audio → Deepgram; câu → AI Gateway. Luồng Cài đặt/Pin vẫn xác minh bằng ảnh.')
         print('Nói “dừng” khi đang nghe hoặc Ctrl+C bất kỳ lúc nào. Microphone đóng khi AI/thao tác chạy.')
     try:
         for turn in range(args.max_turns if args.session else 1):
