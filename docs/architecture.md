@@ -28,9 +28,10 @@ direct_cli (auto hoặc debug)
 | `screen_reader.py` | Đọc cấu trúc giao diện local; mô tả ảnh qua AI chỉ khi người dùng bật tùy chọn. |
 | `screen_navigation.py` | Tìm tab hoặc nút Back native hiện tại; một lần bấm, kiểm tra lại cấu trúc và foreground, không retry. |
 | `screen_scroll.py` | Một lần cuộn dọc; yêu cầu một vùng cuộn native và xác minh chuyển động của phần tử trong cùng app. |
+| `screen_target.py` | Danh sách phần tử native đủ điều kiện → AI chọn ID tạm → kiểm tra lại phần tử/foreground → một click → xác minh tiêu đề đích. |
 | `speech.py` | Thu thủ công trong debug, gửi WAV đến Deepgram. |
 | `endpoint.py` | Thu auto, kết thúc theo âm lượng/im lặng, timeout và giới hạn thời lượng. |
-| `intent.py` | Schema/validation và client AI Gateway: open_app, select_target, select_tab, go_back, scroll, stop. |
+| `intent.py` | Schema/validation và client AI Gateway: open_app, select_target, select_tab, go_back, scroll, open_item, stop. |
 | `vision.py` | Kiểm tra PNG, gửi ảnh, kiểm tra schema và tính nhất quán của kết luận. |
 | `verification.py` | Prompt đánh giá màn hình sau thao tác; không thao tác thiết bị. |
 
@@ -62,6 +63,13 @@ API trả lời chỉ là acknowledged. `verified_match` dựa trên phương ph
 ảnh với Cài đặt/Pin, foreground bundle khi mở app, selected tab khi chuyển tab,
 hoặc tiêu đề navigation thay đổi trong cùng app khi quay lại. Kiểm tra tiêu đề
 không chứng minh nội dung trang đích. Điều hướng không gửi cấu trúc UI lên AI.
+Ngoại lệ là `open_item`: gửi nhãn/loại/ID tạm của ứng viên đủ điều kiện lên AI
+Gateway, không gửi XML/selector/ảnh/input value. Dùng lại schema intent với
+select_target trả ID; ID chỉ có hiệu lực trong lượt đọc hiện tại. Phần tử cần
+khớp fingerprint trước/sau AI và trước click, selector phải trả đúng một phần
+tử, type/label/visible/enabled phải còn đúng. Chỉ báo verified_match khi tiêu đề
+mới khác tiêu đề cũ và khớp nhãn mục hoặc yêu cầu. Bộ lọc local và đánh giá AI
+giảm chọn nhầm hành động, không phải chứng minh ngữ nghĩa của mọi control.
 Tab chỉ lấy button trong TabBar; Back nhận nhãn Back/Quay lại/Trở lại hoặc
 định danh BackButton trong NavigationBar. Không suy đoán từ tọa độ, nút Đóng
 hoặc tên trang trước khi thiếu định danh BackButton. XPath

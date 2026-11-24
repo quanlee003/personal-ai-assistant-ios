@@ -48,6 +48,24 @@ phần tử phải dịch chuyển đúng chiều để xác minh. Ở đầu/cu
 
 Sau khi cập nhật code, đóng và mở lại cửa sổ PC để nạp lệnh mới.
 
+**Mở mục trên màn hình hiện tại:** nói “mở mục [tên]” hoặc “open section [name]”,
+ví dụ “mở mục Music” trên trang có mục Music của App Store. App đọc các mục đang
+hiển thị trong danh sách native, gửi tên/loại/ID tạm của các mục đủ điều kiện
+tới AI Gateway để chọn một mục rồi kiểm tra lại giao diện trước một lần bấm.
+Không tự mở app hoặc cuộn tìm mục. Lệnh Pin cũ vẫn dùng quy trình riêng đã có.
+
+Chỉ dùng để mở trang xem nội dung. Bộ lọc loại nút thay đổi dữ liệu, ô nhập,
+công tắc, thanh trượt, mục sát mép màn hình và các thao tác ngoài phạm vi;
+AI từ chối khi không rõ đó là điều hướng. Nhãn giao diện không luôn mô tả đầy đủ
+hành vi: đây vẫn là tính năng thử nghiệm, chưa bảo đảm mọi app. Kết quả chỉ
+được xác minh khi tiêu đề trang mới khớp tên mục/yêu cầu trong cùng app; thiếu
+tiêu đề hoặc tên khác thì báo chưa xác minh, không bấm lại.
+
+Lệnh này gửi **tên mục giao diện** lên AI, có thể chứa thông tin riêng tư;
+không gửi ảnh, giá trị ô nhập hoặc toàn bộ XML. Tùy chọn gửi ảnh của nút Đọc
+màn hình không điều khiển bước chọn mục này. Khi có ô mật khẩu hiển thị, không
+chọn mục. Phiên giọng nói tự động không hỏi xác nhận từng lượt.
+
 **Đọc màn hình:** mở trang muốn xem trên iPhone, giữ màn hình sáng rồi bấm
 **Đọc màn hình** ở cột kết quả. App hiển thị tên ứng dụng, tiêu đề trang nếu có,
 nội dung và các nút/ô nhập mà WDA đọc được. Chức năng này chỉ quan sát, chưa
@@ -361,7 +379,12 @@ Tính đến 18/11/2026:
   `steps_attempted=2`, `steps_acknowledged=2`, `error_code=null`; người dùng xác
   nhận hoạt động tốt. Đã kiểm chứng giọng nói → AI → launch/click → AI xác minh.
   Không suy ra hai lượt thuộc cùng một phiên vì bản ghi chưa có session ID.
-- 114 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
+- 126 tests đạt; test thông thường không tác động iPhone hoặc gọi cloud.
+- Luồng AI chọn mục trên máy thật đã mở Pin trong Cài đặt và Music trong App
+  Store, xác minh bằng tiêu đề đích. Màn hình Tệp đã thử không có mục đủ điều
+  kiện nên không thao tác. Một lần bấm Cài đặt chung chưa chuyển trang và được
+  báo chưa xác minh; sau đó bổ sung bộ lọc mục sát mép. Chưa kiểm thử microphone
+  cho lệnh mở mục mới, chưa suy rộng sang mọi app/màn hình.
 - Người dùng xác nhận giọng nói chuyển tab App Store và quay lại đã thành công.
 - Đã thử cuộn xuống rồi lên trong Cài đặt trên iPhone thật: cả hai lượt đạt
   `verified_match` bằng `visible_element_movement`, mỗi lượt gửi đúng một lần
