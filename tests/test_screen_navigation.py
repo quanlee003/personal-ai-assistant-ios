@@ -144,6 +144,7 @@ class BackNavigationTests(unittest.TestCase):
         self.backend.active_bundle.return_value = 'example.app'
         self.clicks = 0
         self.label = 'Back'
+        self.name = ''
         self.container = 'XCUIElementTypeNavigationBar'
         self.change_title = True
         self.backend.session_request.side_effect = self.request
@@ -151,7 +152,7 @@ class BackNavigationTests(unittest.TestCase):
     def request(self, method, path, payload=None):
         if path == '/source':
             title = 'Parent' if self.clicks and self.change_title else 'Detail'
-            return {'value': f'<root><{self.container} name="{title}" visible="true"><XCUIElementTypeButton label="{self.label}" visible="true" enabled="true"/></{self.container}></root>'}
+            return {'value': f'<root><{self.container} name="{title}" visible="true"><XCUIElementTypeButton name="{self.name}" label="{self.label}" visible="true" enabled="true"/></{self.container}></root>'}
         if path == '/elements':
             return {'value': [{'ELEMENT': 'back'}]}
         if '/attribute/' in path:
@@ -169,6 +170,12 @@ class BackNavigationTests(unittest.TestCase):
         result = self.run_back()
         self.assertEqual(result.status, 'verified_match')
         self.assertEqual(result.verification_method, 'navigation_title_changed')
+        self.assertEqual(self.clicks, 1)
+
+    def test_native_back_identifier_with_parent_page_label(self):
+        self.name = 'BackButton'
+        self.label = 'Settings'
+        self.assertEqual(self.run_back().status, 'verified_match')
         self.assertEqual(self.clicks, 1)
 
     def test_does_not_guess_unlabelled_back_or_close(self):

@@ -62,7 +62,11 @@ def navigate_tab(target, *, dry_run=False, stop_event=None, on_event=None, backe
     def candidates(xml):
         if not _back:
             return tab_nodes(xml, target)
-        return [node for name in BACK for node in tab_nodes(xml, name, back=True)]
+        return [node for bar in ET.fromstring(xml).iter('XCUIElementTypeNavigationBar')
+                for node in bar.iter('XCUIElementTypeButton')
+                if node.get('visible') == 'true' and node.get('enabled') == 'true'
+                and (node.get('name') == 'BackButton'
+                     or normalize(node.get('label') or node.get('name') or '') in {normalize(name) for name in BACK})]
     if dry_run:
         return ActionResult('dry_run', f'Dự kiến {title} trên giao diện hiện tại; chưa thao tác.')
     attempted = acknowledged = False
